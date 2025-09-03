@@ -1,9 +1,9 @@
 const { Client, GatewayIntentBits, ActivityType, AuditLogEvent } = require('discord.js')
 let DISCORD_TOKEN;
-try {
-  DISCORD_TOKEN = require('./token.json').DISCORD_TOKEN;
-} catch {
-  DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+if(!DISCORD_TOKEN){
+  console.error("ERROR: No Discord token found! Did you set it in Environment Variables?");
+  process.exit(1);
 }
 const fs = require('fs')
 const whitelist = require('./whitelist.json')
