@@ -22,6 +22,7 @@ const joinTimestamps = new Map()
 const messageLogs = new Map()
 const punishedUsers = new Set()
 const TEAM_CHANNEL = '1393207746274398298'
+let securityActive = true
 
 const blacklist = [
   'nigga','niga','nicka','nigger','niger',
@@ -68,6 +69,23 @@ client.once('ready', () => {
 client.on('messageCreate', async message => {
   if (message.author.bot || !message.guild) return
 
+  if (message.content.startsWith('+')) {
+    const args = message.content.slice(1).split(/ +/)
+    const command = args[0]?.toLowerCase()
+    if (command === 'pausear') {
+      if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.reply('You are not allowed to use this command.')
+      securityActive = false
+      return message.channel.send('Security system paused.')
+    }
+    if (command === 'ar') {
+      if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.reply('You are not allowed to use this command.')
+      securityActive = true
+      return message.channel.send('Security system activated.')
+    }
+  }
+
+  if (!securityActive) return
+
   const now = Date.now()
   const key = `${message.guild.id}-${message.author.id}`
 
@@ -81,9 +99,12 @@ client.on('messageCreate', async message => {
     if (!whitelist.whitelistedUsers.includes(message.author.id) && !punishedUsers.has(message.author.id)) {
       punishedUsers.add(message.author.id)
       try {
+        await message.delete()
         await message.member.timeout(30 * 60 * 1000, 'User used blacklisted words')
         await message.channel.send(`${message.author.tag} was timed out for 30m (blacklisted words)`)
       } catch {}
+    } else {
+      try { await message.delete() } catch {}
     }
     return
   }
@@ -112,11 +133,7 @@ client.on('messageCreate', async message => {
 
   if (!message.content.startsWith('+')) return
   const args = message.content.slice(1).split(/ +/)
-
-  if (!whitelist.whitelistedUsers.includes(message.author.id)) {
-    return message.reply('You are not allowed to use this bot.')
-  }
-
+  if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.reply('You are not allowed to use this bot.')
   try {
     await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL)
   } catch (err) {
@@ -125,6 +142,7 @@ client.on('messageCreate', async message => {
 })
 
 client.on('guildMemberAdd', async member => {
+  if (!securityActive) return
   const now = Date.now()
   const guildId = member.guild.id
   if (!joinTimestamps.has(guildId)) joinTimestamps.set(guildId, [])
@@ -146,6 +164,7 @@ client.on('guildMemberAdd', async member => {
 })
 
 client.on('guildAuditLogEntryCreate', async (entry, guild) => {
+  if (!securityActive) return
   if (!guild || !entry.executor) return
   const userId = entry.executor.id
   if (whitelist.whitelistedUsers.includes(userId)) return
