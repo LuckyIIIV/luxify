@@ -1,5 +1,4 @@
 const { Client, GatewayIntentBits, ActivityType, AuditLogEvent } = require('discord.js')
-let DISCORD_TOKEN;
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 if(!DISCORD_TOKEN){
   console.error("ERROR: No Discord token found! Did you set it in Environment Variables?");
