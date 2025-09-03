@@ -40,7 +40,17 @@ function normalize(str) {
     .replace(/\$/g,'s')
     .replace(/5/g,'s')
     .replace(/7/g,'t')
+    .replace(/8/g,'b')
+    .replace(/\+/g,'t')
     .replace(/[^a-z]/g,'')
+}
+
+function isBlacklisted(content) {
+  const normalizedContent = normalize(content)
+  for (const word of blacklist) {
+    if (normalizedContent.includes(normalize(word))) return true
+  }
+  return false
 }
 
 client.once('ready', () => {
@@ -67,8 +77,7 @@ client.on('messageCreate', async message => {
   const recent = logs.filter(l => now - l.time < 5000)
   messageLogs.set(key, recent)
 
-  const contentNorm = normalize(message.content)
-  if (blacklist.some(w => contentNorm.includes(normalize(w)))) {
+  if (isBlacklisted(message.content)) {
     if (!whitelist.whitelistedUsers.includes(message.author.id) && !punishedUsers.has(message.author.id)) {
       punishedUsers.add(message.author.id)
       try {
