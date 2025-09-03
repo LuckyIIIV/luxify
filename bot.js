@@ -1,8 +1,11 @@
 const { Client, GatewayIntentBits, ActivityType, AuditLogEvent } = require('discord.js')
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+if (process.env.NODE_ENV !== "production") {
+  require('dotenv').config()
+}
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN
 if(!DISCORD_TOKEN){
-  console.error("ERROR: No Discord token found! Did you set it in Environment Variables?");
-  process.exit(1);
+  console.error("ERROR: No Discord token found! Did you set it in Environment Variables?")
+  process.exit(1)
 }
 const fs = require('fs')
 const whitelist = require('./whitelist.json')
