@@ -8,7 +8,8 @@ if(!DISCORD_TOKEN){
   process.exit(1)
 }
 const fs = require('fs')
-const whitelist = require('./whitelist.json')
+const whitelistDB = require('./db.js')
+const whitelist = { whitelistedUsers: whitelistDB.getUsers() }
 const handleCommand = require('./commands.js')
 
 const client = new Client({
