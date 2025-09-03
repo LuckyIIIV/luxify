@@ -1,3 +1,5 @@
+const whitelistDB = require("./db.js")
+
 module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
   const { guild } = message
   const command = args.shift()?.toLowerCase()
@@ -73,23 +75,13 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
     if (!['add','remove'].includes(action) || !userId) return message.reply('Usage: +whitelist add/remove {userId}')
 
     if (action === 'add') {
-      if (!whitelist.whitelistedUsers.includes(userId)) {
-        whitelist.whitelistedUsers.push(userId)
-        fs.writeFileSync('./whitelist.json', JSON.stringify(whitelist, null, 2))
-        message.channel.send(`User ${userId} added to whitelist.`)
-      } else {
-        message.channel.send(`User ${userId} is already whitelisted.`)
-      }
+      whitelistDB.addUser(userId)
+      message.channel.send(`User ${userId} added to whitelist.`)
     }
 
     if (action === 'remove') {
-      if (whitelist.whitelistedUsers.includes(userId)) {
-        whitelist.whitelistedUsers = whitelist.whitelistedUsers.filter(id => id !== userId)
-        fs.writeFileSync('./whitelist.json', JSON.stringify(whitelist, null, 2))
-        message.channel.send(`User ${userId} removed from whitelist.`)
-      } else {
-        message.channel.send(`User ${userId} is not in whitelist.`)
-      }
+      whitelistDB.removeUser(userId)
+      message.channel.send(`User ${userId} removed from whitelist.`)
     }
   }
 }
