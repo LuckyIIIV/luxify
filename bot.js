@@ -84,6 +84,19 @@ client.on('messageCreate', async message => {
     }
   }
 
+  if (message.content.startsWith('+')) {
+    const args = message.content.slice(1).split(/ +/)
+    if (whitelist.whitelistedUsers.includes(message.author.id)) {
+      try {
+        await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL)
+      } catch (err) {
+        message.reply(`Error: ${err.message}`)
+      }
+    } else if (!['pausear','ar'].includes(args[0]?.toLowerCase())) {
+      message.reply('You are not allowed to use this bot.')
+    }
+  }
+
   if (!securityActive) return
 
   const now = Date.now()
@@ -129,15 +142,6 @@ client.on('messageCreate', async message => {
         await message.guild.channels.cache.get(TEAM_CHANNEL)?.send(`⚠️ Phishing attempt blocked from ${message.author.tag}`)
       } catch {}
     }
-  }
-
-  if (!message.content.startsWith('+')) return
-  const args = message.content.slice(1).split(/ +/)
-  if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.reply('You are not allowed to use this bot.')
-  try {
-    await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL)
-  } catch (err) {
-    message.reply(`Error: ${err.message}`)
   }
 })
 
