@@ -3,13 +3,19 @@ if (process.env.NODE_ENV !== "production") {
   require('dotenv').config()
 }
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
-if (!DISCORD_TOKEN) {
-  console.error("ERROR: No Discord token found! Did you set it in Environment Variables?")
+const SUPABASE_URL = process.env.SUPABASE_URL
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY
+
+if (!DISCORD_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error("ERROR: Missing environment variables!")
   process.exit(1)
 }
+
 const fs = require('fs')
 const whitelist = require('./whitelist.json')
 const handleCommand = require('./commands.js')
+const { createClient } = require('@supabase/supabase-js')
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 const client = new Client({
   intents: [
@@ -77,7 +83,7 @@ client.on('messageCreate', async message => {
 
   if (whitelist.whitelistedUsers.includes(message.author.id)) {
     try {
-      await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL, () => { securityActive = true }, () => { securityActive = false }, securityActive)
+      await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL, () => { securityActive = true }, () => { securityActive = false }, securityActive, supabase)
     } catch (err) {
       message.channel.send(`Error: ${err.message}`)
     }
