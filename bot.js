@@ -3,7 +3,7 @@ if (process.env.NODE_ENV !== "production") {
   require('dotenv').config()
 }
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
-if(!DISCORD_TOKEN){
+if (!DISCORD_TOKEN) {
   console.error("ERROR: No Discord token found! Did you set it in Environment Variables?")
   process.exit(1)
 }
@@ -35,18 +35,18 @@ const blacklist = [
 
 function normalize(str) {
   return str.toLowerCase()
-    .replace(/@/g,'a')
-    .replace(/4/g,'a')
-    .replace(/3/g,'e')
-    .replace(/1/g,'i')
-    .replace(/!/g,'i')
-    .replace(/0/g,'o')
-    .replace(/\$/g,'s')
-    .replace(/5/g,'s')
-    .replace(/7/g,'t')
-    .replace(/8/g,'b')
-    .replace(/\+/g,'t')
-    .replace(/[^a-z]/g,'')
+    .replace(/@/g, 'a')
+    .replace(/4/g, 'a')
+    .replace(/3/g, 'e')
+    .replace(/1/g, 'i')
+    .replace(/!/g, 'i')
+    .replace(/0/g, 'o')
+    .replace(/\$/g, 's')
+    .replace(/5/g, 's')
+    .replace(/7/g, 't')
+    .replace(/8/g, 'b')
+    .replace(/\+/g, 't')
+    .replace(/[^a-z]/g, '')
 }
 
 function isBlacklisted(content) {
@@ -77,14 +77,14 @@ client.on('messageCreate', async message => {
   const command = args[0]?.toLowerCase()
 
   if (command === 'pausear') {
-    if (!whitelist.whitelistedUsers.includes(message.author.id)) 
+    if (!whitelist.whitelistedUsers.includes(message.author.id))
       return message.reply('You are not allowed to use this command.')
     securityActive = false
     return message.channel.send('Security system paused.')
   }
 
   if (command === 'ar') {
-    if (!whitelist.whitelistedUsers.includes(message.author.id)) 
+    if (!whitelist.whitelistedUsers.includes(message.author.id))
       return message.reply('You are not allowed to use this command.')
     securityActive = true
     return message.channel.send('Security system activated.')
