@@ -1,4 +1,4 @@
-module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pause, securityActive) => {
+module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pause, securityActive, supabase) => {
   const command = args.shift()?.toLowerCase()
 
   if (command === 'ping') {
@@ -179,5 +179,38 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
     } catch (err) {
       message.channel.send(`Couldn't fetch user info: ${err.message}`)
     }
+  }
+
+  if (command === 'search') {
+    const query = args.join(' ')
+    if (!query) return message.channel.send('Bitte gib einen User oder eine IP ein.')
+    const isIP = /^\d{1,3}(\.\d{1,3}){3}$/.test(query)
+    const type = isIP ? 'ip' : 'user'
+    const { data, error } = await supabase.from('search_data').select('*').eq('type', type).ilike('query', query)
+    if (error) return message.channel.send('Datenbank Fehler: ' + error.message)
+    if (!data.length) return message.channel.send(`Keine Infos gefunden für ${query}`)
+    data.forEach(entry => {
+      message.channel.send(`Infos found for ${query}:\n\`\`\`json\n${JSON.stringify(entry.data, null, 2)}\n\`\`\``)
+    })
+  }
+
+  if (command === 'dbadd') {
+    if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.channel.send('Nur du darfst Einträge hinzufügen.')
+    const content = args.join(' ')
+    const match = content.match(/```([\s\S]+)```/)
+    if (!match) return message.channel.send('Bitte benutze einen Codeblock ```...```')
+    const block = match[1].trim()
+    const lines = block.split('\n')
+    const jsonData = {}
+    lines.forEach(line => {
+      const [key, ...rest] = line.split(':')
+      if (!key || rest.length === 0) return
+      jsonData[key.trim().toLowerCase()] = rest.join(':').trim()
+    })
+    const type = /^\d{1,3}(\.\d{1,3}){3}$/.test(jsonData.ip) ? 'ip' : 'user'
+    const query = jsonData.user || jsonData.ip || 'unknown'
+    const { error } = await supabase.from('search_data').insert([{ query, type, data: jsonData }])
+    if (error) return message.channel.send('Fehler beim Einfügen: ' + error.message)
+    message.channel.send(`Eintrag erfolgreich hinzugefügt für ${query}`)
   }
 }
