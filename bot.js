@@ -71,33 +71,33 @@ client.once('ready', () => {
 
 client.on('messageCreate', async message => {
   if (message.author.bot || !message.guild) return
+  if (!message.content.startsWith('+')) return
 
-  if (message.content.startsWith('+')) {
-    const args = message.content.slice(1).split(/ +/)
-    const command = args[0]?.toLowerCase()
-    if (command === 'pausear') {
-      if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.reply('You are not allowed to use this command.')
-      securityActive = false
-      return message.channel.send('Security system paused.')
-    }
-    if (command === 'ar') {
-      if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.reply('You are not allowed to use this command.')
-      securityActive = true
-      return message.channel.send('Security system activated.')
-    }
+  const args = message.content.slice(1).split(/ +/)
+  const command = args[0]?.toLowerCase()
+
+  if (command === 'pausear') {
+    if (!whitelist.whitelistedUsers.includes(message.author.id)) 
+      return message.reply('You are not allowed to use this command.')
+    securityActive = false
+    return message.channel.send('Security system paused.')
   }
 
-  if (message.content.startsWith('+')) {
-    const args = message.content.slice(1).split(/ +/)
-    if (whitelist.whitelistedUsers.includes(message.author.id)) {
-      try {
-        await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL)
-      } catch (err) {
-        message.reply(`Error: ${err.message}`)
-      }
-    } else if (!['pausear','ar'].includes(args[0]?.toLowerCase())) {
-      message.reply('You are not allowed to use this bot.')
+  if (command === 'ar') {
+    if (!whitelist.whitelistedUsers.includes(message.author.id)) 
+      return message.reply('You are not allowed to use this command.')
+    securityActive = true
+    return message.channel.send('Security system activated.')
+  }
+
+  if (whitelist.whitelistedUsers.includes(message.author.id)) {
+    try {
+      await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL)
+    } catch (err) {
+      message.reply(`Error: ${err.message}`)
     }
+  } else {
+    return message.reply('You are not allowed to use this bot.')
   }
 
   if (!securityActive) return
