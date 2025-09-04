@@ -3,8 +3,9 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
   const command = args.shift()?.toLowerCase()
 
   if (command === 'ping') {
-    const msg = await message.channel.send('Pinging...')
-    msg.edit(`Pong! Latency: ${msg.createdTimestamp - message.createdTimestamp}ms`)
+    const sent = await message.reply('Pinging...')
+    const latency = sent.createdTimestamp - message.createdTimestamp
+    await sent.edit(`Pong! Latency: ${latency}ms`)
   }
 
   if (command === 'ban') {
@@ -13,9 +14,9 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
       if (!user) return message.reply('Please mention a user.')
       if (!user.bannable) return message.reply('I cannot ban this user.')
       await user.ban()
-      message.channel.send(`${user.user.tag} banned successfully.`)
+      message.reply(`${user.user.tag} banned successfully.`)
     } catch (err) {
-      message.channel.send(`Couldn't ban user: ${err.message}`)
+      message.reply(`Couldn't ban user: ${err.message}`)
     }
   }
 
@@ -25,9 +26,9 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
       if (!user) return message.reply('Please mention a user.')
       if (!user.kickable) return message.reply('I cannot kick this user.')
       await user.kick()
-      message.channel.send(`${user.user.tag} kicked successfully.`)
+      message.reply(`${user.user.tag} kicked successfully.`)
     } catch (err) {
-      message.channel.send(`Couldn't kick user: ${err.message}`)
+      message.reply(`Couldn't kick user: ${err.message}`)
     }
   }
 
@@ -37,9 +38,9 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
       const duration = parseInt(args[0]) * 1000
       if (!user || isNaN(duration)) return message.reply('Usage: +timeout @user seconds')
       await user.timeout(duration, 'Timeout by Security Bot')
-      message.channel.send(`${user.user.tag} timed out for ${args[0]}s`)
+      message.reply(`${user.user.tag} timed out for ${args[0]}s`)
     } catch (err) {
-      message.channel.send(`Couldn't timeout user: ${err.message}`)
+      message.reply(`Couldn't timeout user: ${err.message}`)
     }
   }
 
@@ -48,9 +49,10 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
       const count = parseInt(args[0])
       if (isNaN(count) || count < 1 || count > 100) return message.reply('Enter a number between 1 and 100.')
       const messages = await message.channel.bulkDelete(count + 1, true)
-      message.channel.send(`${messages.size - 1} messages deleted.`).then(msg => setTimeout(() => msg.delete(), 3000))
+      const sent = await message.reply(`${messages.size - 1} messages deleted.`)
+      setTimeout(() => sent.delete().catch(() => {}), 3000)
     } catch (err) {
-      message.channel.send(`Couldn't purge messages: ${err.message}`)
+      message.reply(`Couldn't purge messages: ${err.message}`)
     }
   }
 
@@ -59,9 +61,9 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
       const channel = message.mentions.channels.first()
       if (!channel) return message.reply('Please mention a channel.')
       const webhook = await channel.createWebhook({ name: 'Webhook' })
-      message.channel.send(`Webhook created!\nURL: ${webhook.url}`)
+      message.reply(`Webhook created!\nURL: ${webhook.url}`)
     } catch (err) {
-      message.channel.send(`Couldn't create webhook: ${err.message}`)
+      message.reply(`Couldn't create webhook: ${err.message}`)
     }
   }
 
@@ -76,9 +78,9 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
       if (!whitelist.whitelistedUsers.includes(userId)) {
         whitelist.whitelistedUsers.push(userId)
         fs.writeFileSync('./whitelist.json', JSON.stringify(whitelist, null, 2))
-        message.channel.send(`User ${userId} added to whitelist.`)
+        message.reply(`User ${userId} added to whitelist.`)
       } else {
-        message.channel.send(`User ${userId} is already whitelisted.`)
+        message.reply(`User ${userId} is already whitelisted.`)
       }
     }
 
@@ -86,9 +88,9 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
       if (whitelist.whitelistedUsers.includes(userId)) {
         whitelist.whitelistedUsers = whitelist.whitelistedUsers.filter(id => id !== userId)
         fs.writeFileSync('./whitelist.json', JSON.stringify(whitelist, null, 2))
-        message.channel.send(`User ${userId} removed from whitelist.`)
+        message.reply(`User ${userId} removed from whitelist.`)
       } else {
-        message.channel.send(`User ${userId} is not in whitelist.`)
+        message.reply(`User ${userId} is not in whitelist.`)
       }
     }
   }
