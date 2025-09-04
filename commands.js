@@ -55,11 +55,25 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
 
   if (command === 'purge') {
     try {
-      const count = parseInt(args[0])
-      if (isNaN(count) || count < 1 || count > 100) return message.channel.send('Enter a number between 1 and 100.')
-      const messages = await message.channel.bulkDelete(count + 1, true)
-      const sent = await message.channel.send(`${messages.size - 1} messages deleted.`)
-      setTimeout(() => sent.delete().catch(() => {}), 3000)
+      if (args.length === 1) {
+        const count = parseInt(args[0])
+        if (isNaN(count) || count < 1 || count > 100) return message.channel.send('Enter a number between 1 and 100.')
+        const messages = await message.channel.bulkDelete(count + 1, true)
+        const sent = await message.channel.send(`${messages.size - 1} messages deleted.`)
+        setTimeout(() => sent.delete().catch(() => {}), 3000)
+      } else if (args.length === 2) {
+        const userId = args[0]
+        const count = parseInt(args[1])
+        if (isNaN(count) || count < 1 || count > 100) return message.channel.send('Enter a number between 1 and 100.')
+        const fetched = await message.channel.messages.fetch({ limit: 100 })
+        const messagesToDelete = fetched.filter(m => m.author.id === userId).first(count)
+        if (messagesToDelete.length === 0) return message.channel.send('No messages found for that user.')
+        await message.channel.bulkDelete(messagesToDelete, true)
+        const sent = await message.channel.send(`${messagesToDelete.length} messages from <@${userId}> deleted.`)
+        setTimeout(() => sent.delete().catch(() => {}), 3000)
+      } else {
+        return message.channel.send('Usage: +purge {amount} OR +purge {userid} {amount}')
+      }
     } catch (err) {
       message.channel.send(`Couldn't purge messages: ${err.message}`)
     }
@@ -101,6 +115,69 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       } else {
         message.channel.send(`User ${userId} is not in whitelist.`)
       }
+    }
+  }
+
+  if (command === 'si') {
+    try {
+      const guild = message.guild
+      const info = {
+        id: guild.id,
+        name: guild.name,
+        description: guild.description,
+        ownerId: guild.ownerId,
+        memberCount: guild.memberCount,
+        large: guild.large,
+        premiumTier: guild.premiumTier,
+        premiumSubscriptionCount: guild.premiumSubscriptionCount,
+        afkTimeout: guild.afkTimeout,
+        afkChannelId: guild.afkChannelId,
+        systemChannelId: guild.systemChannelId,
+        verificationLevel: guild.verificationLevel,
+        mfaLevel: guild.mfaLevel,
+        nsfwLevel: guild.nsfwLevel,
+        vanityURLCode: guild.vanityURLCode,
+        preferredLocale: guild.preferredLocale,
+        rulesChannelId: guild.rulesChannelId,
+        publicUpdatesChannelId: guild.publicUpdatesChannelId,
+        createdAt: guild.createdAt,
+        iconURL: guild.iconURL({ dynamic: true, size: 4096 }),
+        bannerURL: guild.bannerURL({ size: 4096 }),
+        splashURL: guild.splashURL({ size: 4096 }),
+        discoverySplashURL: guild.discoverySplashURL({ size: 4096 })
+      }
+      message.channel.send('```json\n' + JSON.stringify(info, null, 2) + '\n```')
+    } catch (err) {
+      message.channel.send(`Couldn't fetch server info: ${err.message}`)
+    }
+  }
+
+  if (command === 'ui') {
+    try {
+      const userId = args[0]
+      if (!userId) return message.channel.send('Usage: +ui {userid}')
+      const member = await message.guild.members.fetch(userId).catch(() => null)
+      if (!member) return message.channel.send('User not found in this server.')
+      const user = member.user
+      const info = {
+        id: user.id,
+        username: user.username,
+        discriminator: user.discriminator,
+        tag: user.tag,
+        bot: user.bot,
+        createdAt: user.createdAt,
+        avatarURL: user.displayAvatarURL({ dynamic: true, size: 4096 }),
+        nickname: member.nickname,
+        joinedAt: member.joinedAt,
+        roles: member.roles.cache.map(r => ({ id: r.id, name: r.name })),
+        pending: member.pending,
+        premiumSince: member.premiumSince,
+        deaf: member.voice?.deaf || false,
+        mute: member.voice?.mute || false
+      }
+      message.channel.send('```json\n' + JSON.stringify(info, null, 2) + '\n```')
+    } catch (err) {
+      message.channel.send(`Couldn't fetch user info: ${err.message}`)
     }
   }
 }
