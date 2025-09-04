@@ -74,30 +74,15 @@ client.on('messageCreate', async message => {
   if (!message.content.startsWith('+')) return
 
   const args = message.content.slice(1).split(/ +/)
-  const command = args[0]?.toLowerCase()
-
-  if (command === 'pausear') {
-    if (!whitelist.whitelistedUsers.includes(message.author.id))
-      return message.channel.send('You are not allowed to use this command.')
-    securityActive = false
-    return message.channel.send('Security system paused.')
-  }
-
-  if (command === 'ar') {
-    if (!whitelist.whitelistedUsers.includes(message.author.id))
-      return message.channel.send('You are not allowed to use this command.')
-    securityActive = true
-    return message.channel.send('Security system activated.')
-  }
 
   if (whitelist.whitelistedUsers.includes(message.author.id)) {
     try {
-      await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL)
+      await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL, () => { securityActive = true }, () => { securityActive = false }, securityActive)
     } catch (err) {
       message.channel.send(`Error: ${err.message}`)
     }
   } else {
-    return message.channel.send('You are not allowed to use this bot.')
+    message.channel.send('You are not allowed to use this bot.')
   }
 
   if (!securityActive) return
