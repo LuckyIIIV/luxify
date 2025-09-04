@@ -195,22 +195,29 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
   }
 
   if (command === 'dbadd') {
-    if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.channel.send('Nur du darfst Einträge hinzufügen.')
-    const content = args.join(' ')
-    const match = content.match(/```([\s\S]+)```/)
-    if (!match) return message.channel.send('Bitte benutze einen Codeblock ```...```')
-    const block = match[1].trim()
-    const lines = block.split('\n')
-    const jsonData = {}
-    lines.forEach(line => {
-      const [key, ...rest] = line.split(':')
-      if (!key || rest.length === 0) return
-      jsonData[key.trim().toLowerCase()] = rest.join(':').trim()
-    })
-    const type = /^\d{1,3}(\.\d{1,3}){3}$/.test(jsonData.ip) ? 'ip' : 'user'
-    const query = jsonData.user || jsonData.ip || 'unknown'
-    const { error } = await supabase.from('search_data').insert([{ query, type, data: jsonData }])
-    if (error) return message.channel.send('Fehler beim Einfügen: ' + error.message)
-    message.channel.send(`Eintrag erfolgreich hinzugefügt für ${query}`)
-  }
+  if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.channel.send('Nur du darfst Einträge hinzufügen.')
+
+  const discordId = args.shift()
+  const content = args.join(' ')
+  const match = content.match(/```([\s\S]+)```/)
+  if (!match) return message.channel.send('Bitte benutze einen Codeblock ```...```')
+  const block = match[1].trim()
+  const lines = block.split('\n')
+  const jsonData = {}
+  lines.forEach(line => {
+    const [key, ...rest] = line.split(':')
+    if (!key || rest.length === 0) return
+    jsonData[key.trim().toLowerCase()] = rest.join(':').trim()
+  })
+
+  jsonData.discord_id = discordId
+  jsonData.discord_username = message.author.username
+  jsonData.name = discordId
+
+  const type = jsonData.ip ? 'ip' : 'user'
+  const query = jsonData.ip || jsonData.name || 'unknown'
+
+  const { error } = await supabase.from('search_data').insert([{ query, type, data: jsonData }])
+  if (error) return message.channel.send('Fehler beim Einfügen: ' + error.message)
+  message.channel.send(`Eintrag erfolgreich hinzugefügt für ${query}`)
 }
