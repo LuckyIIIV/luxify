@@ -1,11 +1,20 @@
-module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL) => {
-  const { guild } = message
+module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pause, securityActive) => {
   const command = args.shift()?.toLowerCase()
 
   if (command === 'ping') {
     const sent = await message.channel.send('Pinging...')
     const latency = sent.createdTimestamp - message.createdTimestamp
     await sent.edit(`Pong! Latency: ${latency}ms`)
+  }
+
+  if (command === 'pausear') {
+    pause()
+    return message.channel.send('Security system paused.')
+  }
+
+  if (command === 'ar') {
+    activate()
+    return message.channel.send('Security system activated.')
   }
 
   if (command === 'ban') {
