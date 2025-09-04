@@ -210,11 +210,11 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
 
   if (command === 'search') {
     const query = args.join(' ')
-    if (!query) return message.channel.send('Bitte gib etwas zum Suchen ein.')
+    if (!query) return message.channel.send('Please enter a value to search')
     const { data, error } = await supabase.from('search_data').select('*')
       .or(`query.ilike.%${query}%,name.ilike.%${query}%,discord_user.ilike.%${query}%,discord_id.ilike.%${query}%,ip.ilike.%${query}%,isp.ilike.%${query}%`)
-    if (error) return message.channel.send('Datenbank Fehler: ' + error.message)
-    if (!data.length) return message.channel.send(`Keine Infos gefunden für ${query}`)
+    if (error) return message.channel.send('DB Error: ' + error.message)
+    if (!data.length) return message.channel.send(`No infos found for ${query}`)
     data.forEach(entry => {
       message.channel.send('```json\n' + JSON.stringify(entry, null, 2) + '\n```')
     })
