@@ -30,7 +30,7 @@ let securityActive = true
 const blacklist = [
   'nigga','niga','nicka','nigger','niger',
   'fotze','bastard','hurensohn','schwanz','penis',
-  'muschi','vagina','ficken','fickt'
+  'muschi','vagina','ficken','fickt', 'bitch', 'sklave'
 ]
 
 function normalize(str) {
