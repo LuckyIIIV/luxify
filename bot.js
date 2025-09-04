@@ -78,14 +78,14 @@ client.on('messageCreate', async message => {
 
   if (command === 'pausear') {
     if (!whitelist.whitelistedUsers.includes(message.author.id))
-      return message.reply('You are not allowed to use this command.')
+      return message.channel.send('You are not allowed to use this command.')
     securityActive = false
     return message.channel.send('Security system paused.')
   }
 
   if (command === 'ar') {
     if (!whitelist.whitelistedUsers.includes(message.author.id))
-      return message.reply('You are not allowed to use this command.')
+      return message.channel.send('You are not allowed to use this command.')
     securityActive = true
     return message.channel.send('Security system activated.')
   }
@@ -94,10 +94,10 @@ client.on('messageCreate', async message => {
     try {
       await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL)
     } catch (err) {
-      message.reply(`Error: ${err.message}`)
+      message.channel.send(`Error: ${err.message}`)
     }
   } else {
-    return message.reply('You are not allowed to use this bot.')
+    return message.channel.send('You are not allowed to use this bot.')
   }
 
   if (!securityActive) return
