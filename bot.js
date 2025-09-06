@@ -72,6 +72,7 @@ const allowedRoles = [
   "1412503646712631447",
   "1393207668637958297"
 ]
+const TICKET_LOG_CHANNEL = "1413910870886584333"
 client.once('ready', () => {
   console.log(`Bot online as ${client.user.tag}`)
   client.user.setPresence({
@@ -204,7 +205,7 @@ client.on("interactionCreate", async interaction => {
       }
       const adminRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator))
       adminRoles.forEach(r => overwrites.push({ id: r.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }))
-      
+
       const channel = await guild.channels.create({
         name: `ticket-${ticketNumber}`,
         type: ChannelType.GuildText,
@@ -214,53 +215,53 @@ client.on("interactionCreate", async interaction => {
 
       const embed = new EmbedBuilder()
         .setTitle(`🎫 Ticket #${ticketNumber}`)
-        .setDescription(`Ticket created by ${interaction.user.tag} (${type})\nA team member will be with you shortly.`)
+        .setDescription(`${interaction.user} created this ${type} ticket.\nA team member will be with you shortly.`)
         .setColor("Blurple")
         .setTimestamp()
 
       const buttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("claim_ticket").setLabel("Claim").setEmoji("✅").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("close_ticket").setLabel("Close").setEmoji("🛑").setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId("close_ticket").setLabel("Close").setEmoji("🔒").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("claim_ticket").setLabel("Claim").setStyle(ButtonStyle.Success)
       )
 
-      await channel.send({ embeds: [embed], components: [buttons] })
+      await channel.send({ content: `${interaction.user}`, embeds: [embed], components: [buttons] })
       await interaction.editReply(`✅ Your ticket has been created: ${channel}`)
 
       const ticketMessages = []
-      const collector = channel.createMessageCollector({})
-
-      collector.on("collect", m => ticketMessages.push(`${m.author.tag}: ${m.content}`))
-
-      const buttonCollector = channel.createMessageComponentCollector({ componentType: "BUTTON" })
+      const msgCollector = channel.createMessageCollector({})
+      msgCollector.on("collect", m => ticketMessages.push(`${m.author.tag}: ${m.content}`))
 
       let claimer = null
 
+      const buttonCollector = channel.createMessageComponentCollector({ componentType: "BUTTON" })
       buttonCollector.on("collect", async btnInt => {
+        if (!channel.members.cache.has(btnInt.user.id)) {
+          await btnInt.reply({ content: "You cannot interact with this ticket.", ephemeral: true })
+          return
+        }
+
         if (btnInt.customId === "claim_ticket") {
           if (claimer) {
             await btnInt.reply({ content: `Ticket already claimed by ${claimer.tag}`, ephemeral: true })
           } else {
             claimer = btnInt.user
-            await btnInt.update({ content: `✅ Ticket claimed by ${claimer.tag}`, components: [] })
+            await btnInt.reply({ content: `✅ Ticket claimed by ${claimer.tag}`, ephemeral: false })
           }
         }
 
         if (btnInt.customId === "close_ticket") {
-          const modal = new ModalBuilder()
-            .setCustomId("close_modal")
-            .setTitle("Close Ticket")
+          const modal = new ModalBuilder().setCustomId("close_modal").setTitle("Close Ticket")
           const reasonInput = new TextInputBuilder()
             .setCustomId("close_reason")
             .setLabel("Reason for closing the ticket")
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true)
-          const row = new ActionRowBuilder().addComponents(reasonInput)
-          modal.addComponents(row)
+          modal.addComponents(new ActionRowBuilder().addComponents(reasonInput))
           await btnInt.showModal(modal)
         }
       })
 
-      client.on("interactionCreate", async modalInt => {
+      const modalCollector = client.on("interactionCreate", async modalInt => {
         if (modalInt.type !== InteractionType.ModalSubmit) return
         if (modalInt.customId === "close_modal") {
           const reason = modalInt.fields.getTextInputValue("close_reason")
@@ -273,8 +274,8 @@ client.on("interactionCreate", async interaction => {
             .setDescription(`Your ${type} ticket has been closed for reason:\n${reason}\nView the log attached.`)
             .setColor("Red")
             .setTimestamp()
-
           await modalInt.user.send({ embeds: [closeEmbed], files: [`/tmp/${fileName}`] }).catch(() => {})
+
           const logChannel = await guild.channels.fetch(TICKET_LOG_CHANNEL)
           if (logChannel) {
             const logEmbed = new EmbedBuilder()
@@ -289,6 +290,7 @@ client.on("interactionCreate", async interaction => {
           setTimeout(() => channel.delete().catch(() => {}), 1000)
         }
       })
+
     } catch (err) {
       await interaction.editReply(`❌ Error creating ticket: ${err.message}`)
     }
