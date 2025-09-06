@@ -185,7 +185,6 @@ client.on("interactionCreate", async interaction => {
     if (interaction.customId !== "ticket_menu") return
     await interaction.deferReply({ ephemeral: true })
     ticketCounter++
-    fs.writeFileSync('./ticket_counter.txt', String(ticketCounter))
     const ticketNumber = String(ticketCounter).padStart(3, "0")
     const type = interaction.values[0]
     const categoryId = ticketCategories[type]
@@ -194,23 +193,47 @@ client.on("interactionCreate", async interaction => {
       return
     }
     const guild = interaction.guild
-    const category = guild.channels.cache.get(categoryId)
-    if (!category) {
-      await interaction.editReply("❌ Kategorie existiert nicht auf diesem Server.")
-      return
-    }
+    const channelName = `ticket-${ticketNumber}`
     const overwrites = [
-      { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] },
-      { id: guild.ownerId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+      {
+        id: guild.id,
+        deny: [PermissionFlagsBits.ViewChannel]
+      },
+      {
+        id: interaction.user.id,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.AttachFiles,
+          PermissionFlagsBits.ReadMessageHistory
+        ]
+      },
+      {
+        id: guild.ownerId,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages
+        ]
+      }
     ]
     allowedRoles.forEach(roleId => {
-      if (guild.roles.cache.get(roleId)) overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] })
+      overwrites.push({
+        id: roleId,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages
+        ]
+      })
     })
     guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator)).forEach(r => {
-      overwrites.push({ id: r.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] })
+      overwrites.push({
+        id: r.id,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages
+        ]
+      })
     })
-    const channelName = `ticket-${ticketNumber}`
     const channel = await guild.channels.create({
       name: channelName,
       type: ChannelType.GuildText,
@@ -221,15 +244,16 @@ client.on("interactionCreate", async interaction => {
     await interaction.editReply(`✅ Dein Ticket wurde erstellt: ${channel}`)
   } catch (err) {
     console.error("Ticket Create Error:", err)
+    const errorString = String(err).slice(0, 1900)
     try {
-      const errorString = String(err).slice(0, 1900)
-      if (interaction.deferred || interaction.replied) await interaction.editReply(`❌ Fehler beim Erstellen des Tickets:\n\`\`\`\n${errorString}\n\`\`\``)
-      else await interaction.reply({ content: `❌ Fehler beim Erstellen des Tickets:\n\`\`\`\n${errorString}\n\`\`\``, ephemeral: true })
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply(`❌ Fehler beim Erstellen des Tickets:\n\`\`\`\n${errorString}\n\`\`\``)
+      } else {
+        await interaction.reply({ content: `❌ Fehler beim Erstellen des Tickets:\n\`\`\`\n${errorString}\n\`\`\``, ephemeral: true })
+      }
     } catch {}
     try {
-      const guild = interaction.guild
       const teamChannel = guild?.channels.cache.get(TEAM_CHANNEL)
-      const errorString = String(err).slice(0, 1900)
       if (teamChannel) await teamChannel.send(`Ticket Create Error in ${guild?.name} (${guild?.id}):\n\`\`\`\n${errorString}\n\`\`\``)
     } catch {}
   }
