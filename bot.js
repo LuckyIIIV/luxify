@@ -206,21 +206,26 @@ client.on("interactionCreate", async interaction => {
           PermissionFlagsBits.AttachFiles,
           PermissionFlagsBits.ReadMessageHistory
         ]
-      },
-      {
-        id: guild.ownerId,
-        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
       }
     ]
-    allowedRoles.forEach(roleId => {
-      if (guild.roles.cache.has(roleId)) {
+    const ownerMember = await guild.members.fetch(guild.ownerId).catch(() => null)
+    if (ownerMember) {
+      overwrites.push({
+        id: ownerMember.id,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+      })
+    }
+    for (const roleId of allowedRoles) {
+      const role = await guild.roles.fetch(roleId).catch(() => null)
+      if (role) {
         overwrites.push({
-          id: roleId,
+          id: role.id,
           allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
         })
       }
-    })
-    guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator)).forEach(r => {
+    }
+    const adminRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator))
+    adminRoles.forEach(r => {
       overwrites.push({
         id: r.id,
         allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
@@ -245,5 +250,4 @@ client.on("interactionCreate", async interaction => {
     if (teamChannel) await teamChannel.send(`Ticket Create Error:\n\`\`\`\n${errorString}\n\`\`\``)
   }
 })
-
 client.login(DISCORD_TOKEN)
