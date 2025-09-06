@@ -39,6 +39,40 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
     return message.channel.send('Security system activated.')
   }
 
+  if (command === 'help') {
+    try {
+      const { EmbedBuilder } = require('discord.js')
+
+      const embed = new EmbedBuilder()
+        .setTitle('Security Bot Help')
+        .setDescription('Here is a list of available commands:')
+        .setColor(0x5865F2)
+        .addFields(
+          { name: '+ping', value: 'Check the bot latency.', inline: true },
+          { name: '+pausear', value: 'Pause the security system.', inline: true },
+          { name: '+ar', value: 'Activate the security system.', inline: true },
+          { name: '+ban @user', value: 'Ban a mentioned user.', inline: true },
+          { name: '+kick @user', value: 'Kick a mentioned user.', inline: true },
+          { name: '+timeout @user seconds', value: 'Timeout a user for X seconds.', inline: true },
+          { name: '+purge {amount}', value: 'Delete messages in bulk (1–100).', inline: true },
+          { name: '+purge {userId} {amount}', value: 'Delete X messages from a specific user.', inline: true },
+          { name: '+createwebhook #channel', value: 'Create a webhook in the mentioned channel.', inline: true },
+          { name: '+whitelist add/remove {userId}', value: 'Manage whitelist (Owner only).', inline: true },
+          { name: '+si', value: 'Show server information.', inline: true },
+          { name: '+ui {userId}', value: 'Show detailed user information.', inline: true },
+          { name: '+search {query}', value: 'Search user or IP in database.', inline: true },
+          { name: '+dbadd ```key: value```', value: 'Add a new entry to database (whitelisted only).', inline: true },
+          { name: '+addrole {userId} {roleId}', value: 'Add a role to a user.', inline: true }
+        )
+        .setFooter({ text: 'Security Bot • Developed by tkt.lucky' })
+        .setTimestamp()
+
+      return message.channel.send({ embeds: [embed] })
+    } catch (err) {
+      message.channel.send(`Couldn't send help: ${err.message}`)
+    }
+  }
+
   if (command === 'ban') {
     try {
       const user = message.mentions.members.first()
