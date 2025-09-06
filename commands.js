@@ -1,24 +1,19 @@
 const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } = require("discord.js")
-
 module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pause, securityActive, supabase) => {
   const command = args.shift()?.toLowerCase()
-
   if (command === 'ping') {
     const sent = await message.channel.send('Pinging...')
     const latency = sent.createdTimestamp - message.createdTimestamp
     await sent.edit(`Pong! Latency: ${latency}ms`)
   }
-
   if (command === 'pausear') {
     pause()
     return message.channel.send('Security system paused.')
   }
-
   if (command === 'ar') {
     activate()
     return message.channel.send('Security system activated.')
   }
-
   if (command === 'ban') {
     try {
       const user = message.mentions.members.first()
@@ -30,7 +25,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't ban user: ${err.message}`)
     }
   }
-
   if (command === 'kick') {
     try {
       const user = message.mentions.members.first()
@@ -42,7 +36,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't kick user: ${err.message}`)
     }
   }
-
   if (command === 'timeout') {
     try {
       const user = message.mentions.members.first()
@@ -54,7 +47,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't timeout user: ${err.message}`)
     }
   }
-
   if (command === 'purge') {
     try {
       if (args.length === 1) {
@@ -69,7 +61,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
         if (isNaN(count) || count < 1 || count > 100) return message.channel.send('Enter a number between 1 and 100.')
         const fetched = await message.channel.messages.fetch({ limit: 100 })
         const messagesToDelete = fetched.filter(m => m.author.id === userId).first(count)
-        if (messagesToDelete.length === 0) return message.channel.send('No messages found for that user.')
+        if (!messagesToDelete || messagesToDelete.length === 0) return message.channel.send('No messages found for that user.')
         await message.channel.bulkDelete(messagesToDelete, true)
         const sent = await message.channel.send(`${messagesToDelete.length} messages from <@${userId}> deleted.`)
         setTimeout(() => sent.delete().catch(() => {}), 3000)
@@ -80,7 +72,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't purge messages: ${err.message}`)
     }
   }
-
   if (command === 'createwebhook') {
     try {
       const channel = message.mentions.channels.first()
@@ -91,7 +82,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't create webhook: ${err.message}`)
     }
   }
-
   if (command === 'whitelist') {
     const ownerId = '1217846372372316172'
     if (message.author.id !== ownerId) return message.channel.send('Only the bot owner can manage the whitelist.')
@@ -117,7 +107,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       }
     }
   }
-
   if (command === 'si') {
     try {
       const guild = message.guild
@@ -151,7 +140,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't fetch server info: ${err.message}`)
     }
   }
-
   if (command === 'ui') {
     try {
       const userId = args[0]
@@ -180,7 +168,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't fetch user info: ${err.message}`)
     }
   }
-
   if (command === 'search') {
     const query = args.join(' ')
     if (!query) return message.channel.send('Bitte gib einen User oder eine IP ein.')
@@ -190,27 +177,45 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
     if (error) return message.channel.send('Datenbank Fehler: ' + error.message)
     if (!data.length) return message.channel.send(`Keine Infos gefunden für ${query}`)
     data.forEach(entry => {
-      message.channel.send('```json\n' + JSON.stringify(entry, null, 2) + '\n```')
+      message.channel.send('```json\n' + JSON.stringify(entry.data, null, 2) + '\n```')
     })
   }
-
+  if (command === 'dbadd') {
+    if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.channel.send('Nur du darfst Einträge hinzufügen.')
+    const content = args.join(' ')
+    const match = content.match(/```([\s\S]+)```/)
+    if (!match) return message.channel.send('Bitte benutze einen Codeblock ```...```')
+    const block = match[1].trim()
+    const lines = block.split('\n')
+    const jsonData = {}
+    lines.forEach(line => {
+      const [key, ...rest] = line.split(':')
+      if (!key || rest.length === 0) return
+      jsonData[key.trim().toLowerCase()] = rest.join(':').trim()
+    })
+    const type = /^\d{1,3}(\.\d{1,3}){3}$/.test(jsonData.ip) ? 'ip' : 'user'
+    const query = jsonData.user || jsonData.ip || 'unknown'
+    const { error } = await supabase.from('search_data').insert([{ query, type, data: jsonData }])
+    if (error) return message.channel.send('Fehler beim Einfügen: ' + error.message)
+    message.channel.send(`Eintrag erfolgreich hinzugefügt für ${query}`)
+  }
   if (command === 'sendticketpanel') {
     const embed = new EmbedBuilder()
       .setTitle("🎫 Ticket Panel")
-      .setDescription("Please select a ticket:")
+      .setDescription("Bitte wähle die Art des Tickets aus, die du erstellen möchtest:")
       .setColor("Blurple")
     const menu = new StringSelectMenuBuilder()
       .setCustomId("ticket_menu")
-      .setPlaceholder("Select a ticket")
+      .setPlaceholder("Wähle eine Ticket-Art...")
       .addOptions([
         {
-          label: "Support Ticket",
-          description: "Support",
+          label: "Support",
+          description: "Hilfe oder Fragen",
           value: "support"
         },
         {
           label: "Media",
-          description: "Bewerbung für Media",
+          description: "Media-Anfrage",
           value: "media"
         },
         {
