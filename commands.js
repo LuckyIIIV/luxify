@@ -1,30 +1,44 @@
-const { 
-  StringSelectMenuBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  PermissionFlagsBits,
-  ChannelType
-} = require("discord.js")
 module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pause, securityActive, supabase) => {
   const command = args.shift()?.toLowerCase()
+
   if (command === 'ping') {
     const sent = await message.channel.send('Pinging...')
     const latency = sent.createdTimestamp - message.createdTimestamp
     await sent.edit(`Pong! Latency: ${latency}ms`)
   }
+
   if (command === 'pausear') {
     pause()
     return message.channel.send('Security system paused.')
   }
+
+  if (command === 'addrole') {
+    try {
+      const userId = args[0]
+      const roleId = args[1]
+
+      if (!userId || !roleId) {
+        return message.channel.send('Usage: +addrole {userId} {roleId}')
+      }
+
+      const member = await message.guild.members.fetch(userId).catch(() => null)
+      if (!member) return message.channel.send('User nicht gefunden.')
+
+      const role = message.guild.roles.cache.get(roleId)
+      if (!role) return message.channel.send('Rolle nicht gefunden.')
+
+      await member.roles.add(role)
+      message.channel.send(`Rolle <@&${roleId}> wurde erfolgreich zu <@${userId}> hinzugefügt.`)
+    } catch (err) {
+      message.channel.send(`Konnte Rolle nicht hinzufügen: ${err.message}`)
+    }
+  }
+
   if (command === 'ar') {
     activate()
     return message.channel.send('Security system activated.')
   }
+
   if (command === 'ban') {
     try {
       const user = message.mentions.members.first()
@@ -36,6 +50,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't ban user: ${err.message}`)
     }
   }
+
   if (command === 'kick') {
     try {
       const user = message.mentions.members.first()
@@ -47,6 +62,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't kick user: ${err.message}`)
     }
   }
+
   if (command === 'timeout') {
     try {
       const user = message.mentions.members.first()
@@ -58,6 +74,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't timeout user: ${err.message}`)
     }
   }
+
   if (command === 'purge') {
     try {
       if (args.length === 1) {
@@ -72,7 +89,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
         if (isNaN(count) || count < 1 || count > 100) return message.channel.send('Enter a number between 1 and 100.')
         const fetched = await message.channel.messages.fetch({ limit: 100 })
         const messagesToDelete = fetched.filter(m => m.author.id === userId).first(count)
-        if (!messagesToDelete || messagesToDelete.length === 0) return message.channel.send('No messages found for that user.')
+        if (messagesToDelete.length === 0) return message.channel.send('No messages found for that user.')
         await message.channel.bulkDelete(messagesToDelete, true)
         const sent = await message.channel.send(`${messagesToDelete.length} messages from <@${userId}> deleted.`)
         setTimeout(() => sent.delete().catch(() => {}), 3000)
@@ -83,6 +100,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't purge messages: ${err.message}`)
     }
   }
+
   if (command === 'createwebhook') {
     try {
       const channel = message.mentions.channels.first()
@@ -93,12 +111,14 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't create webhook: ${err.message}`)
     }
   }
+
   if (command === 'whitelist') {
     const ownerId = '1217846372372316172'
     if (message.author.id !== ownerId) return message.channel.send('Only the bot owner can manage the whitelist.')
     const action = args.shift()
     const userId = args.shift()
     if (!['add','remove'].includes(action) || !userId) return message.channel.send('Usage: +whitelist add/remove {userId}')
+
     if (action === 'add') {
       if (!whitelist.whitelistedUsers.includes(userId)) {
         whitelist.whitelistedUsers.push(userId)
@@ -108,6 +128,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
         message.channel.send(`User ${userId} is already whitelisted.`)
       }
     }
+
     if (action === 'remove') {
       if (whitelist.whitelistedUsers.includes(userId)) {
         whitelist.whitelistedUsers = whitelist.whitelistedUsers.filter(id => id !== userId)
@@ -118,6 +139,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       }
     }
   }
+
   if (command === 'si') {
     try {
       const guild = message.guild
@@ -151,6 +173,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't fetch server info: ${err.message}`)
     }
   }
+
   if (command === 'ui') {
     try {
       const userId = args[0]
@@ -179,6 +202,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       message.channel.send(`Couldn't fetch user info: ${err.message}`)
     }
   }
+
   if (command === 'search') {
     const query = args.join(' ')
     if (!query) return message.channel.send('Bitte gib einen User oder eine IP ein.')
@@ -188,9 +212,10 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
     if (error) return message.channel.send('Datenbank Fehler: ' + error.message)
     if (!data.length) return message.channel.send(`Keine Infos gefunden für ${query}`)
     data.forEach(entry => {
-      message.channel.send('```json\n' + JSON.stringify(entry.data, null, 2) + '\n```')
+      message.channel.send(`Infos found for ${query}:\n\`\`\`json\n${JSON.stringify(entry.data, null, 2)}\n\`\`\``)
     })
   }
+
   if (command === 'dbadd') {
     if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.channel.send('Nur du darfst Einträge hinzufügen.')
     const content = args.join(' ')
@@ -209,33 +234,5 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
     const { error } = await supabase.from('search_data').insert([{ query, type, data: jsonData }])
     if (error) return message.channel.send('Fehler beim Einfügen: ' + error.message)
     message.channel.send(`Eintrag erfolgreich hinzugefügt für ${query}`)
-  }
-  if (command === 'sendticketpanel') {
-    const embed = new EmbedBuilder()
-      .setTitle("🎫 LuxifySMP | Tickets")
-      .setDescription("Please select the ticket you want to create:")
-      .setColor("Blurple")
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId("ticket_menu")
-      .setPlaceholder("Select a category")
-      .addOptions([
-        {
-          label: "Support",
-          description: "Support Ticket",
-          value: "support"
-        },
-        {
-          label: "Apply",
-          description: "Apply",
-          value: "apply"
-        },
-        {
-          label: "Ban Appeal",
-          description: "Appeal against ban",
-          value: "ban"
-        }
-      ])
-    const row = new ActionRowBuilder().addComponents(menu)
-    await message.channel.send({ embeds: [embed], components: [row] })
   }
 }
