@@ -310,7 +310,7 @@ client.on("interactionCreate", async interaction => {
       fs.writeFileSync(`/tmp/${fileName}`, chatLog)
 
       const closeEmbed = new EmbedBuilder()
-        .setTitle(`🎫 Ticket #${channel.ticketNumber} Closed`)
+        .setTitle(`🎫 #${channel.ticketType} Ticket Closed`)
         .setDescription(`Your ${channel.ticketType} ticket has been closed for reason:\n${reason}\nView the log attached.`)
         .setColor("Red")
         .setTimestamp()
