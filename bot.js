@@ -181,8 +181,6 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
   }
 })
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, InteractionType, PermissionFlagsBits } = require("discord.js")
-const fs = require("fs")
-const TICKET_LOG_CHANNEL = "1413910870886584333"
 
 client.on("interactionCreate", async interaction => {
   if (!interaction.isStringSelectMenu() || interaction.customId !== "ticket_menu") return
