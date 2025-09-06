@@ -1,3 +1,5 @@
+const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } = require("discord.js")
+
 module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pause, securityActive, supabase) => {
   const command = args.shift()?.toLowerCase()
 
@@ -96,7 +98,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
     const action = args.shift()
     const userId = args.shift()
     if (!['add','remove'].includes(action) || !userId) return message.channel.send('Usage: +whitelist add/remove {userId}')
-
     if (action === 'add') {
       if (!whitelist.whitelistedUsers.includes(userId)) {
         whitelist.whitelistedUsers.push(userId)
@@ -106,7 +107,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
         message.channel.send(`User ${userId} is already whitelisted.`)
       }
     }
-
     if (action === 'remove') {
       if (whitelist.whitelistedUsers.includes(userId)) {
         whitelist.whitelistedUsers = whitelist.whitelistedUsers.filter(id => id !== userId)
@@ -181,42 +181,45 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
     }
   }
 
-  if (command === 'dbadd') {
-    if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.channel.send('Nur du darfst Einträge hinzufügen.')
-    const content = args.join(' ')
-    const match = content.match(/```([\s\S]+)```/)
-    if (!match) return message.channel.send('Bitte benutze einen Codeblock ```...```')
-    const block = match[1].trim()
-    const lines = block.split('\n')
-    const jsonData = {}
-    lines.forEach(line => {
-      const [key, ...rest] = line.split(':')
-      if (!key || rest.length === 0) return
-      jsonData[key.trim().toLowerCase()] = rest.join(':').trim()
-    })
-    const query = jsonData.ip || jsonData.name || 'unknown'
-    const { error } = await supabase.from('search_data').insert([{
-      query,
-      name: jsonData.name || '',
-      discord_user: jsonData.discord_user || '',
-      discord_id: jsonData.discord_id || message.author.id,
-      ip: jsonData.ip || '',
-      isp: jsonData.isp || '',
-      created_at: new Date()
-    }])
-    if (error) return message.channel.send('Fehler beim Einfügen: ' + error.message)
-    message.channel.send(`Eintrag erfolgreich hinzugefügt für ${query}`)
-  }
-
   if (command === 'search') {
     const query = args.join(' ')
-    if (!query) return message.channel.send('Please enter a value to search')
-    const { data, error } = await supabase.from('search_data').select('*')
-      .or(`query.ilike.%${query}%,name.ilike.%${query}%,discord_user.ilike.%${query}%,discord_id.ilike.%${query}%,ip.ilike.%${query}%,isp.ilike.%${query}%`)
-    if (error) return message.channel.send('DB Error: ' + error.message)
-    if (!data.length) return message.channel.send(`No infos found for ${query}`)
+    if (!query) return message.channel.send('Bitte gib einen User oder eine IP ein.')
+    const isIP = /^\d{1,3}(\.\d{1,3}){3}$/.test(query)
+    const type = isIP ? 'ip' : 'user'
+    const { data, error } = await supabase.from('search_data').select('*').eq('type', type).ilike('query', query)
+    if (error) return message.channel.send('Datenbank Fehler: ' + error.message)
+    if (!data.length) return message.channel.send(`Keine Infos gefunden für ${query}`)
     data.forEach(entry => {
       message.channel.send('```json\n' + JSON.stringify(entry, null, 2) + '\n```')
     })
+  }
+
+  if (command === 'sendticketpanel') {
+    const embed = new EmbedBuilder()
+      .setTitle("🎫 Ticket Panel")
+      .setDescription("Please select a ticket:")
+      .setColor("Blurple")
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId("ticket_menu")
+      .setPlaceholder("Select a ticket")
+      .addOptions([
+        {
+          label: "Support Ticket",
+          description: "Support",
+          value: "support"
+        },
+        {
+          label: "Media",
+          description: "Bewerbung für Media",
+          value: "media"
+        },
+        {
+          label: "Ban Appeal",
+          description: "Einspruch gegen Bann",
+          value: "ban"
+        }
+      ])
+    const row = new ActionRowBuilder().addComponents(menu)
+    await message.channel.send({ embeds: [embed], components: [row] })
   }
 }
