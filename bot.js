@@ -57,9 +57,9 @@ function isBlacklisted(content) {
 }
 let ticketCounter = 0
 const ticketCategories = {
-  Support: "1393207709117186178",
-  Apply: "1393207737747247184",
-  Ban: "1393207740020555936"
+  support: "1393207709117186178",
+  apply: "1393207737747247184",
+  ban: "1393207740020555936"
 }
 const allowedRoles = [
   "1412843820630016030",
