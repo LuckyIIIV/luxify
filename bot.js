@@ -226,7 +226,7 @@ client.on("interactionCreate", async interaction => {
       new ButtonBuilder().setCustomId("claim_ticket").setLabel("Claim").setStyle(ButtonStyle.Success)
     )
 
-    const ticketMessage = await channel.send({ content: `${interaction.user}`, embeds: [embed], components: [buttons] })
+    await channel.send({ content: `${interaction.user}`, embeds: [embed], components: [buttons] })
     await interaction.editReply(`✅ Your ticket has been created: ${channel}`)
 
     channel.ticketMessages = []
@@ -245,7 +245,6 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isButton()) return
   const channel = interaction.channel
   if (!channel || !channel.ticketMessages) return
-
   if (!channel.members.cache.has(interaction.user.id)) {
     await interaction.reply({ content: "You cannot interact with this ticket.", ephemeral: true })
     return
@@ -278,33 +277,34 @@ client.on("interactionCreate", async interaction => {
 client.on("interactionCreate", async interaction => {
   if (!interaction.isModalSubmit()) return
   if (interaction.customId !== "close_modal") return
-
   const channel = interaction.channel
   if (!channel || !channel.ticketMessages) return
 
-  const reason = interaction.fields.getTextInputValue("close_reason")
-  const chatLog = channel.ticketMessages.join("\n")
-  const fileName = `ticket-${channel.ticketNumber}.txt`
-  fs.writeFileSync(`/tmp/${fileName}`, chatLog)
+  await interaction.reply({ content: "Ticket close process started...", ephemeral: true })
+  setImmediate(async () => {
+    const reason = interaction.fields.getTextInputValue("close_reason")
+    const chatLog = channel.ticketMessages.join("\n")
+    const fileName = `ticket-${channel.ticketNumber}.txt`
+    fs.writeFileSync(`/tmp/${fileName}`, chatLog)
 
-  const closeEmbed = new EmbedBuilder()
-    .setTitle(`🎫 Ticket #${channel.ticketNumber} Closed`)
-    .setDescription(`Your ${channel.ticketType} ticket has been closed for reason:\n${reason}\nView the log attached.`)
-    .setColor("Red")
-    .setTimestamp()
-  await interaction.user.send({ embeds: [closeEmbed], files: [`/tmp/${fileName}`] }).catch(() => {})
-
-  const logChannel = await channel.guild.channels.fetch(TICKET_LOG_CHANNEL)
-  if (logChannel) {
-    const logEmbed = new EmbedBuilder()
-      .setTitle(`🎫 Ticket #${channel.ticketNumber} Log`)
-      .setDescription(`The ticket (${channel.ticketNumber}) was claimed by ${channel.claimer ? channel.claimer.tag : "No one"} and closed by ${interaction.user.tag} with reason:\n${reason}`)
-      .setColor("Orange")
+    const closeEmbed = new EmbedBuilder()
+      .setTitle(`🎫 Ticket #${channel.ticketNumber} Closed`)
+      .setDescription(`Your ${channel.ticketType} ticket has been closed for reason:\n${reason}\nView the log attached.`)
+      .setColor("Red")
       .setTimestamp()
-    await logChannel.send({ embeds: [logEmbed], files: [`/tmp/${fileName}`] })
-  }
+    await interaction.user.send({ embeds: [closeEmbed], files: [`/tmp/${fileName}`] }).catch(() => {})
 
-  await interaction.reply({ content: `Ticket closed successfully.`, ephemeral: true })
-  setTimeout(() => channel.delete().catch(() => {}), 1000)
+    const logChannel = await channel.guild.channels.fetch(TICKET_LOG_CHANNEL)
+    if (logChannel) {
+      const logEmbed = new EmbedBuilder()
+        .setTitle(`🎫 Ticket #${channel.ticketNumber} Log`)
+        .setDescription(`The ticket (${channel.ticketNumber}) was claimed by ${channel.claimer ? channel.claimer.tag : "No one"} and closed by ${interaction.user.tag} with reason:\n${reason}`)
+        .setColor("Orange")
+        .setTimestamp()
+      await logChannel.send({ embeds: [logEmbed], files: [`/tmp/${fileName}`] })
+    }
+
+    setTimeout(() => channel.delete().catch(() => {}), 1000)
+  })
 })
 client.login(DISCORD_TOKEN)
