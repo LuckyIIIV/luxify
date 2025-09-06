@@ -210,17 +210,17 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       .addOptions([
         {
           label: "Support",
-          description: "Hilfe oder Fragen",
+          description: "Support Ticket",
           value: "support"
         },
         {
-          label: "Media",
-          description: "Media-Anfrage",
+          label: "Apply",
+          description: "Media Apply",
           value: "media"
         },
         {
           label: "Ban Appeal",
-          description: "Einspruch gegen Bann",
+          description: "Appeal against ban",
           value: "ban"
         }
       ])
