@@ -186,7 +186,7 @@ client.on("interactionCreate", async interaction => {
     const ticketNumber = String(ticketCounter).padStart(3, "0")
     const type = interaction.values[0]
     
-    const categoryId = ticketCategories[type];
+    const categoryId = ticketCategories[type.toLowerCase().trim()];
     if (!categoryId) {
       await interaction.editReply("❌ Category not found!");
       return;
