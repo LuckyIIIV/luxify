@@ -320,7 +320,7 @@ client.on("interactionCreate", async interaction => {
       const logChannel = await channel.guild.channels.fetch(TICKET_LOG_CHANNEL)
       if (logChannel) {
         const logEmbed = new EmbedBuilder()
-          .setTitle(`🎫 Ticket #${channel.ticketType} Log`)
+          .setTitle(`🎫 Ticket #${channel.ticketNumber} Log`)
           .setDescription(`The ticket (${channel.ticketNumber}) was claimed by ${channel.claimer ? channel.claimer.tag : "No one"} and closed by ${interaction.user.tag} with reason:\n${reason}`)
           .setColor("Orange")
           .setTimestamp()
