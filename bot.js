@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, ButtonStyle, EmbedBuilder, ActivityType, ModalBuilder, TextInputBuilder, TextInputStyle, AuditLogEvent, ChannelType, PermissionFlagsBits } = require('discord.js')
+const { Client, GatewayIntentBits, ActivityType, AuditLogEvent } = require('discord.js')
 if (process.env.NODE_ENV !== "production") {
   require('dotenv').config()
 }
@@ -180,7 +180,7 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
     } catch {}
   }
 })
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, InteractionType, PermissionFlagsBits, ChannelType } = require("discord.js")
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, InteractionType, PermissionFlagsBits } = require("discord.js")
 const fs = require("fs")
 const TICKET_LOG_CHANNEL = "1413910870886584333"
 
