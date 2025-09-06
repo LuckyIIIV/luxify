@@ -227,7 +227,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
         {
           label: "Apply",
           description: "Apply",
-          value: "media"
+          value: "apply"
         },
         {
           label: "Ban Appeal",
