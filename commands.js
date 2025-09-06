@@ -212,12 +212,12 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
   }
   if (command === 'sendticketpanel') {
     const embed = new EmbedBuilder()
-      .setTitle("🎫 Ticket Panel")
-      .setDescription("Bitte wähle die Art des Tickets aus, die du erstellen möchtest:")
+      .setTitle("🎫 LuxifySMP | Tickets")
+      .setDescription("Please select the ticket you want to create:")
       .setColor("Blurple")
     const menu = new StringSelectMenuBuilder()
       .setCustomId("ticket_menu")
-      .setPlaceholder("Wähle eine Ticket-Art...")
+      .setPlaceholder("Select a category")
       .addOptions([
         {
           label: "Support",
