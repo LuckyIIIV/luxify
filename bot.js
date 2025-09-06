@@ -180,7 +180,7 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
     } catch {}
   }
 })
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, InteractionType, PermissionFlagsBits } = require("discord.js")
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, InteractionType, PermissionFlagsBits, ChannelType } = require("discord.js")
 
 client.on("interactionCreate", async interaction => {
   if (!interaction.isStringSelectMenu() || interaction.customId !== "ticket_menu") return
