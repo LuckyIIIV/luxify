@@ -229,7 +229,7 @@ client.on("interactionCreate", async interaction => {
       )
 
       const sentMessage = await ticketChannel.send({ content: `${interaction.user}`, embeds: [embed], components: [buttons] })
-      await interaction.editReply(`✅ Your ticket has been created: ${ticketChannel}`)
+      await interaction.editReply({ content: `✅ Your ticket has been created: ${ticketChannel}`, components: [interaction.message.components[0].setComponents(interaction.message.components[0].components.map(c => c.setDisabled(false)))] })
 
       ticketChannel.ticketMessages = []
       const msgCollector = ticketChannel.createMessageCollector({})
@@ -247,19 +247,14 @@ client.on("interactionCreate", async interaction => {
 
   if (interaction.isButton()) {
     if (!channel || !channel.ticketMessages) return
-
-    if (!channel.permissionsFor(interaction.user)?.has(PermissionFlagsBits.ViewChannel)) {
-      return await interaction.reply({ content: "You cannot interact with this ticket.", ephemeral: true })
-    }
+    if (!channel.permissionsFor(interaction.user)?.has(PermissionFlagsBits.ViewChannel)) return await interaction.reply({ content: "You cannot interact with this ticket.", ephemeral: true })
 
     if (interaction.customId === "claim_ticket") {
       if (channel.claimer) {
         await interaction.reply({ content: `Ticket already claimed by ${channel.claimer.tag}`, ephemeral: true })
       } else {
         channel.claimer = interaction.user
-        await interaction.update({
-          components: interaction.message.components
-        })
+        await interaction.update({ components: interaction.message.components })
         await channel.send(`✅ Ticket claimed by ${interaction.user} !`)
       }
       return
@@ -287,7 +282,6 @@ client.on("interactionCreate", async interaction => {
 
       const row = new ActionRowBuilder().addComponents(reasonInput)
       modal.addComponents(row)
-
       await interaction.showModal(modal)
       return
     }
@@ -300,7 +294,6 @@ client.on("interactionCreate", async interaction => {
 
   if (interaction.isModalSubmit() && interaction.customId === "close_modal") {
     if (!channel || !channel.ticketMessages) return
-
     await interaction.reply({ content: "Closing ticket...", ephemeral: true })
 
     setImmediate(async () => {
@@ -314,14 +307,13 @@ client.on("interactionCreate", async interaction => {
         .setDescription(`Your ${channel.ticketType} ticket has been closed for reason:\n${reason}\nView the log attached.`)
         .setColor("Red")
         .setTimestamp()
-
       await interaction.user.send({ embeds: [closeEmbed], files: [`/tmp/${fileName}`] }).catch(() => {})
 
       const logChannel = await channel.guild.channels.fetch(TICKET_LOG_CHANNEL)
       if (logChannel) {
         const logEmbed = new EmbedBuilder()
           .setTitle(`🎫 Ticket #${channel.ticketNumber} Log`)
-          .setDescription(`The ticket (${channel.ticketNumber}) was claimed by ${channel.claimer ? channel.claimer.tag : "No one"} and closed by ${interaction.user.tag} with reason:\n${reason}`)
+          .setDescription(`Category: ${channel.ticketType}\nThe ticket (${channel.ticketNumber}) was claimed by ${channel.claimer ? channel.claimer.tag : "No one"} and closed by ${interaction.user.tag} with reason:\n${reason}`)
           .setColor("Orange")
           .setTimestamp()
         await logChannel.send({ embeds: [logEmbed], files: [`/tmp/${fileName}`] })
@@ -331,5 +323,6 @@ client.on("interactionCreate", async interaction => {
     })
   }
 })
+
 
 client.login(DISCORD_TOKEN)
