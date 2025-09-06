@@ -229,7 +229,22 @@ client.on("interactionCreate", async interaction => {
       )
 
       const sentMessage = await ticketChannel.send({ content: `${interaction.user}`, embeds: [embed], components: [buttons] })
-      await interaction.editReply({ content: `✅ Your ticket has been created: ${ticketChannel}`, components: [interaction.message.components[0].setComponents(interaction.message.components[0].components.map(c => c.setDisabled(false)))] })
+      await interaction.editReply({ content: `✅ Your ticket has been created: ${ticketChannel}` })
+
+      if (interaction.message) {
+        const originalComponents = interaction.message.components.map(row => {
+          const newRow = new ActionRowBuilder()
+          row.components.forEach(comp => {
+            if (comp.customId === "ticket_menu") {
+              newRow.addComponents(comp.setDisabled(false))
+            } else {
+              newRow.addComponents(comp)
+            }
+          })
+          return newRow
+        })
+        await interaction.message.edit({ components: originalComponents }).catch(() => {})
+      }
 
       ticketChannel.ticketMessages = []
       const msgCollector = ticketChannel.createMessageCollector({})
@@ -323,6 +338,5 @@ client.on("interactionCreate", async interaction => {
     })
   }
 })
-
 
 client.login(DISCORD_TOKEN)
