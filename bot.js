@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, ActivityType, AuditLogEvent } = require('discord.js')
+const { Client, GatewayIntentBits, ActivityType, AuditLogEvent, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, ChannelType, PermissionFlagsBits } = require('discord.js')
 if (process.env.NODE_ENV !== "production") {
   require('dotenv').config()
 }
@@ -36,7 +36,7 @@ let securityActive = true
 const blacklist = [
   'nigga','niga','nicka','nigger','niger',
   'fotze','bastard','hurensohn','schwanz','penis',
-  'muschi','vagina','ficken','fickt','bitch','sklave'
+  'muschi','vagina','ficken','fickt', 'bitch', 'sklave'
 ]
 
 function normalize(str) {
@@ -63,6 +63,24 @@ function isBlacklisted(content) {
   return false
 }
 
+let ticketCounter = 0
+const ticketCategories = {
+  support: "1393207709117186178",
+  media: "1393207737747247184",
+  ban: "1393207740020555936"
+}
+const allowedRoles = [
+  "1412843820630016030",
+  "1393207670336651304",
+  "1393207671284437095",
+  "1393207669472628746",
+  "1412843008726007910",
+  "1412812080851062860",
+  "1393207667782058007",
+  "1412503646712631447",
+  "1393207668637958297"
+]
+
 client.once('ready', () => {
   console.log(`Bot online as ${client.user.tag}`)
   client.user.setPresence({
@@ -78,9 +96,7 @@ client.once('ready', () => {
 client.on('messageCreate', async message => {
   if (message.author.bot || !message.guild) return
   if (!message.content.startsWith('+')) return
-
   const args = message.content.slice(1).split(/ +/)
-
   if (whitelist.whitelistedUsers.includes(message.author.id)) {
     try {
       await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL, () => { securityActive = true }, () => { securityActive = false }, securityActive, supabase)
@@ -90,18 +106,14 @@ client.on('messageCreate', async message => {
   } else {
     message.channel.send('You are not allowed to use this bot.')
   }
-
   if (!securityActive) return
-
   const now = Date.now()
   const key = `${message.guild.id}-${message.author.id}`
-
   if (!messageLogs.has(key)) messageLogs.set(key, [])
   const logs = messageLogs.get(key)
   logs.push({ content: message.content, time: now })
   const recent = logs.filter(l => now - l.time < 5000)
   messageLogs.set(key, recent)
-
   if (isBlacklisted(message.content)) {
     if (!whitelist.whitelistedUsers.includes(message.author.id) && !punishedUsers.has(message.author.id)) {
       punishedUsers.add(message.author.id)
@@ -115,7 +127,6 @@ client.on('messageCreate', async message => {
     }
     return
   }
-
   if (recent.length > 8) {
     if (!whitelist.whitelistedUsers.includes(message.author.id) && !punishedUsers.has(message.author.id)) {
       punishedUsers.add(message.author.id)
@@ -125,7 +136,6 @@ client.on('messageCreate', async message => {
       } catch {}
     }
   }
-
   const linkPattern = /(https?:\/\/[^\s]+)/gi
   if (message.content.match(linkPattern)) {
     const suspicious = /(grabify|iplogger|phish|scam|free-nitro)/i
@@ -148,14 +158,12 @@ client.on('guildMemberAdd', async member => {
   timestamps.push(now)
   const recent = timestamps.filter(t => now - t < 10000)
   joinTimestamps.set(guildId, recent)
-
   if (member.user.bot && !whitelist.whitelistedUsers.includes(member.id)) {
     try {
       await member.kick('Unauthorized bot join blocked')
       await member.guild.channels.cache.get(TEAM_CHANNEL)?.send(`⚠️ Unauthorized bot blocked: ${member.user.tag}`)
     } catch {}
   }
-
   if (recent.length > 7) {
     member.guild.channels.cache.get(TEAM_CHANNEL)?.send(`⚠️ Possible raid detected on ${member.guild.name}`)
   }
@@ -166,7 +174,6 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
   if (!guild || !entry.executor) return
   const userId = entry.executor.id
   if (whitelist.whitelistedUsers.includes(userId)) return
-
   const destructive = [
     AuditLogEvent.ChannelDelete,
     AuditLogEvent.ChannelCreate,
@@ -175,7 +182,6 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
     AuditLogEvent.WebhookCreate,
     AuditLogEvent.WebhookDelete
   ]
-
   if (destructive.includes(entry.action)) {
     const member = await guild.members.fetch(userId).catch(() => null)
     if (!member) return
@@ -184,6 +190,47 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
       guild.channels.cache.get(TEAM_CHANNEL)?.send(`⚠️ Suspicious action by ${entry.executor.tag} was blocked`)
     } catch {}
   }
+})
+
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isStringSelectMenu()) return
+  if (interaction.customId !== "ticket_menu") return
+  ticketCounter++
+  const ticketNumber = String(ticketCounter).padStart(3, "0")
+  const type = interaction.values[0]
+  const categoryId = ticketCategories[type]
+  if (!categoryId) {
+    return interaction.reply({ content: "❌ Kategorie nicht gefunden!", ephemeral: true })
+  }
+  const guild = interaction.guild
+  const overwrites = [
+    {
+      id: guild.roles.everyone,
+      deny: [PermissionFlagsBits.ViewChannel]
+    },
+    {
+      id: interaction.user.id,
+      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles]
+    },
+    {
+      id: guild.ownerId,
+      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+    }
+  ]
+  allowedRoles.forEach(roleId => {
+    overwrites.push({
+      id: roleId,
+      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+    })
+  })
+  const channel = await guild.channels.create({
+    name: `${type}-${ticketNumber}`,
+    type: ChannelType.GuildText,
+    parent: categoryId,
+    permissionOverwrites: overwrites
+  })
+  await channel.send(`🎫 Ticket erstellt von ${interaction.user}. Ein Teammitglied wird sich bald melden.`)
+  await interaction.reply({ content: `✅ Dein Ticket wurde erstellt: ${channel}`, ephemeral: true })
 })
 
 client.login(DISCORD_TOKEN)
