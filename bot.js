@@ -58,7 +58,7 @@ function isBlacklisted(content) {
 let ticketCounter = 0
 const ticketCategories = {
   support: "1393207709117186178",
-  apply: "1393207737747247184",
+  media: "1393207737747247184",
   ban: "1393207740020555936"
 }
 const allowedRoles = [
@@ -310,7 +310,7 @@ client.on("interactionCreate", async interaction => {
       fs.writeFileSync(`/tmp/${fileName}`, chatLog)
 
       const closeEmbed = new EmbedBuilder()
-        .setTitle(`🎫 #${channel.ticketType} Ticket Closed`)
+        .setTitle(`🎫 # Ticket ${channel.ticketNumber} Closed`)
         .setDescription(`Your ${channel.ticketType} ticket has been closed for reason:\n${reason}\nView the log attached.`)
         .setColor("Red")
         .setTimestamp()
@@ -320,7 +320,7 @@ client.on("interactionCreate", async interaction => {
       const logChannel = await channel.guild.channels.fetch(TICKET_LOG_CHANNEL)
       if (logChannel) {
         const logEmbed = new EmbedBuilder()
-          .setTitle(`🎫 #${channel.ticketType} Ticket Log`)
+          .setTitle(`🎫 # Ticket ${channel.ticketNumber} Log`)
           .setDescription(`The ticket (${channel.ticketNumber}) was claimed by ${channel.claimer ? channel.claimer.tag : "No one"} and closed by ${interaction.user.tag} with reason:\n${reason}`)
           .setColor("Orange")
           .setTimestamp()
