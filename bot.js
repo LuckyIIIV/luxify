@@ -181,6 +181,8 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
   }
 })
 
+const tickets = new Map()
+
 client.on("interactionCreate", async interaction => {
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket_menu") {
     await interaction.deferReply({ ephemeral: true })
@@ -191,6 +193,7 @@ client.on("interactionCreate", async interaction => {
     ticketCounter++
     const ticketNumber = String(ticketCounter).padStart(3, "0")
     const guild = interaction.guild
+
     const overwrites = [
       { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
       { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] }
@@ -225,33 +228,37 @@ client.on("interactionCreate", async interaction => {
     )
 
     await ticketChannel.send({ content: `${interaction.user}`, embeds: [embed], components: [buttons] })
-
     await interaction.editReply({ content: `✅ Your ticket has been created: ${ticketChannel}` })
 
+    // SelectMenu zurücksetzen
     if (interaction.message) {
       const selectMenu = interaction.message.components[0].components[0]
       selectMenu.setDisabled(false)
+      if (selectMenu.options.length > 0) selectMenu.options[0].default = true
       await interaction.message.edit({ components: [new ActionRowBuilder().addComponents(selectMenu)] }).catch(() => {})
     }
 
-    ticketChannel.ticketMessages = []
+    tickets.set(ticketChannel.id, {
+      ticketType,
+      ticketNumber,
+      ticketMessages: [],
+      claimer: null
+    })
+
     const collector = ticketChannel.createMessageCollector({})
-    collector.on("collect", m => ticketChannel.ticketMessages.push(`${m.author.tag}: ${m.content}`))
-    ticketChannel.claimer = null
-    ticketChannel.ticketType = ticketType
-    ticketChannel.ticketNumber = ticketNumber
+    collector.on("collect", m => tickets.get(ticketChannel.id).ticketMessages.push(`${m.author.tag}: ${m.content}`))
   }
 
   if (interaction.isButton()) {
-    const channel = interaction.channel
-    if (!channel || !channel.ticketMessages) return interaction.reply({ content: "This ticket is invalid.", ephemeral: true })
-    if (!channel.permissionsFor(interaction.user)?.has(PermissionFlagsBits.ViewChannel)) return interaction.reply({ content: "You cannot interact with this ticket.", ephemeral: true })
+    const ticket = tickets.get(interaction.channelId)
+    if (!ticket) return interaction.reply({ content: "This ticket is invalid.", ephemeral: true })
+    if (!interaction.channel.permissionsFor(interaction.user)?.has(PermissionFlagsBits.ViewChannel)) return interaction.reply({ content: "You cannot interact with this ticket.", ephemeral: true })
 
     if (interaction.customId === "claim_ticket") {
-      if (channel.claimer) return interaction.reply({ content: `Ticket already claimed by ${channel.claimer.tag}`, ephemeral: true })
-      channel.claimer = interaction.user
+      if (ticket.claimer) return interaction.reply({ content: `Ticket already claimed by ${ticket.claimer.tag}`, ephemeral: true })
+      ticket.claimer = interaction.user
       await interaction.update({ components: interaction.message.components })
-      channel.send(`✅ Ticket claimed by ${interaction.user} !`)
+      interaction.channel.send(`✅ Ticket claimed by ${interaction.user} !`)
       return
     }
 
@@ -276,38 +283,37 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isModalSubmit() && interaction.customId === "close_modal") {
-    const channel = interaction.channel
-    if (!channel || !channel.ticketMessages) return interaction.reply({ content: "This ticket is invalid.", ephemeral: true })
+    const ticket = tickets.get(interaction.channelId)
+    if (!ticket) return interaction.reply({ content: "This ticket is invalid.", ephemeral: true })
     await interaction.reply({ content: "Closing ticket...", ephemeral: true })
 
     setImmediate(async () => {
       const reason = interaction.fields.getTextInputValue("close_reason")
-      const chatLog = channel.ticketMessages.join("\n")
-      const fileName = `ticket-${channel.ticketNumber}.txt`
+      const chatLog = ticket.ticketMessages.join("\n")
+      const fileName = `ticket-${ticket.ticketNumber}.txt`
       fs.writeFileSync(`/tmp/${fileName}`, chatLog)
 
       const closeEmbed = new EmbedBuilder()
-        .setTitle(`🎫 Ticket #${channel.ticketNumber} Closed`)
-        .setDescription(`Your ${channel.ticketType} ticket has been closed for reason:\n${reason}\nView the log attached.`)
+        .setTitle(`🎫 Ticket #${ticket.ticketNumber} Closed`)
+        .setDescription(`Your ${ticket.ticketType} ticket has been closed for reason:\n${reason}\nView the log attached.`)
         .setColor("Red")
         .setTimestamp()
 
       await interaction.user.send({ embeds: [closeEmbed], files: [`/tmp/${fileName}`] }).catch(() => {})
 
-      const logChannel = await channel.guild.channels.fetch(TICKET_LOG_CHANNEL)
+      const logChannel = await interaction.guild.channels.fetch(TICKET_LOG_CHANNEL)
       if (logChannel) {
         const logEmbed = new EmbedBuilder()
-          .setTitle(`🎫 Ticket #${channel.ticketNumber} Log`)
-          .setDescription(`Category: ${channel.ticketType}\nThe ticket (${channel.ticketNumber}) was claimed by ${channel.claimer ? channel.claimer.tag : "No one"} and closed by ${interaction.user.tag} with reason:\n${reason}`)
+          .setTitle(`🎫 Ticket #${ticket.ticketNumber} Log`)
+          .setDescription(`Category: ${ticket.ticketType}\nThe ticket (${ticket.ticketNumber}) was claimed by ${ticket.claimer ? ticket.claimer.tag : "No one"} and closed by ${interaction.user.tag} with reason:\n${reason}`)
           .setColor("Orange")
           .setTimestamp()
         await logChannel.send({ embeds: [logEmbed], files: [`/tmp/${fileName}`] })
       }
 
-      setTimeout(() => channel.delete().catch(() => {}), 1000)
+      tickets.delete(interaction.channelId)
+      setTimeout(() => interaction.channel.delete().catch(() => {}), 1000)
     })
   }
 })
-
-
 client.login(DISCORD_TOKEN)
