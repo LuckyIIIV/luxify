@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, ActivityType, AuditLogEvent, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, ChannelType, PermissionFlagsBits } = require('discord.js')
+const { Client, GatewayIntentBits, ActivityType, AuditLogEvent, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, ChannelType, PermissionsBitField } = require('discord.js')
 if (process.env.NODE_ENV !== "production") {
   require('dotenv').config()
 }
@@ -210,38 +210,50 @@ client.on("interactionCreate", async interaction => {
   const guild = interaction.guild
   const overwrites = [
     {
-      id: guild.roles.everyone,
-      deny: [PermissionFlagsBits.ViewChannel]
+      id: guild.roles.everyone.id,
+      deny: [PermissionsBitField.Flags.ViewChannel]
     },
     {
       id: interaction.user.id,
-      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles]
+      allow: [
+        PermissionsBitField.Flags.ViewChannel,
+        PermissionsBitField.Flags.SendMessages,
+        PermissionsBitField.Flags.AttachFiles,
+        PermissionsBitField.Flags.ReadMessageHistory
+      ]
     },
     {
       id: guild.ownerId,
-      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+      allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
     }
   ]
 
   allowedRoles.forEach(roleId => {
     overwrites.push({
       id: roleId,
-      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+      allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
     })
   })
 
   try {
+    const category = guild.channels.cache.get(categoryId)
+    if (!category) {
+      return interaction.editReply("❌ Kategorie mit der angegebenen ID existiert nicht.")
+    }
+
     const channel = await guild.channels.create({
-      name: `${type}-${ticketNumber}`,
+      name: `${type}-ticket-${ticketNumber}`,
       type: ChannelType.GuildText,
-      parent: categoryId,
+      parent: category.id,
       permissionOverwrites: overwrites
     })
 
-    await channel.send(`🎫 Ticket erstellt von ${interaction.user}. Ein Teammitglied wird sich bald melden.`)
+    await channel.send(
+      `🎫 Ticket erstellt von ${interaction.user}.\nEin Teammitglied wird sich bald um dich kümmern.`
+    )
     await interaction.editReply(`✅ Dein Ticket wurde erstellt: ${channel}`)
   } catch (err) {
-    console.error(err)
+    console.error("Ticket Create Error:", err)
     await interaction.editReply("❌ Fehler beim Erstellen des Tickets. Bitte kontaktiere einen Admin.")
   }
 })
