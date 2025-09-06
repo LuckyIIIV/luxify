@@ -56,7 +56,11 @@ function isBlacklisted(content) {
   return false
 }
 let ticketCounter = 0
-const ticketCategories = { support: "1393207709117186178", apply: "1393207737747247184", ban: "1393207740020555936" }
+const ticketCategories = {
+  support: "1393207709117186178",
+  apply: "1393207737747247184",
+  ban: "1393207740020555936"
+};
 const allowedRoles = [
   "1412843820630016030",
   "1393207670336651304",
@@ -186,7 +190,7 @@ client.on("interactionCreate", async interaction => {
     const ticketNumber = String(ticketCounter).padStart(3, "0")
     const type = interaction.values[0]
     
-    const categoryId = ticketCategories[type.toLowerCase().trim()];
+    const categoryId = ticketCategories[type];
     if (!categoryId) {
       await interaction.editReply("❌ Category not found!");
       return;
