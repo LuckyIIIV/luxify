@@ -1,22 +1,19 @@
-const { Client, GatewayIntentBits, ActivityType, AuditLogEvent, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, ChannelType, PermissionsBitField } = require('discord.js')
+const { Client, GatewayIntentBits, ActivityType, AuditLogEvent, ChannelType, PermissionFlagsBits } = require('discord.js')
 if (process.env.NODE_ENV !== "production") {
   require('dotenv').config()
 }
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY
-
 if (!DISCORD_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error("ERROR: Missing environment variables!")
   process.exit(1)
 }
-
 const fs = require('fs')
 const whitelist = require('./whitelist.json')
 const handleCommand = require('./commands.js')
 const { createClient } = require('@supabase/supabase-js')
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -26,19 +23,16 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 })
-
 const joinTimestamps = new Map()
 const messageLogs = new Map()
 const punishedUsers = new Set()
 const TEAM_CHANNEL = '1393207746274398298'
 let securityActive = true
-
 const blacklist = [
   'nigga','niga','nicka','nigger','niger',
   'fotze','bastard','hurensohn','schwanz','penis',
   'muschi','vagina','ficken','fickt', 'bitch', 'sklave'
 ]
-
 function normalize(str) {
   return str.toLowerCase()
     .replace(/@/g, 'a')
@@ -54,7 +48,6 @@ function normalize(str) {
     .replace(/\+/g, 't')
     .replace(/[^a-z]/g, '')
 }
-
 function isBlacklisted(content) {
   const normalizedContent = normalize(content)
   for (const word of blacklist) {
@@ -62,7 +55,6 @@ function isBlacklisted(content) {
   }
   return false
 }
-
 let ticketCounter = 0
 const ticketCategories = {
   support: "1393207709117186178",
@@ -80,7 +72,6 @@ const allowedRoles = [
   "1412503646712631447",
   "1393207668637958297"
 ]
-
 client.once('ready', () => {
   console.log(`Bot online as ${client.user.tag}`)
   client.user.setPresence({
@@ -92,7 +83,6 @@ client.once('ready', () => {
     status: 'dnd'
   })
 })
-
 client.on('messageCreate', async message => {
   if (message.author.bot || !message.guild) return
   if (!message.content.startsWith('+')) return
@@ -101,10 +91,10 @@ client.on('messageCreate', async message => {
     try {
       await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL, () => { securityActive = true }, () => { securityActive = false }, securityActive, supabase)
     } catch (err) {
-      message.channel.send(`Error: ${err.message}`)
+      await message.channel.send(`Error: ${err.message}`)
     }
   } else {
-    message.channel.send('You are not allowed to use this bot.')
+    await message.channel.send('You are not allowed to use this bot.')
   }
   if (!securityActive) return
   const now = Date.now()
@@ -148,7 +138,6 @@ client.on('messageCreate', async message => {
     }
   }
 })
-
 client.on('guildMemberAdd', async member => {
   if (!securityActive) return
   const now = Date.now()
@@ -168,7 +157,6 @@ client.on('guildMemberAdd', async member => {
     member.guild.channels.cache.get(TEAM_CHANNEL)?.send(`⚠️ Possible raid detected on ${member.guild.name}`)
   }
 })
-
 client.on('guildAuditLogEntryCreate', async (entry, guild) => {
   if (!securityActive) return
   if (!guild || !entry.executor) return
@@ -191,71 +179,83 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
     } catch {}
   }
 })
-
 client.on("interactionCreate", async interaction => {
-  if (!interaction.isStringSelectMenu()) return
-  if (interaction.customId !== "ticket_menu") return
-
-  await interaction.deferReply({ ephemeral: true })
-
-  ticketCounter++
-  const ticketNumber = String(ticketCounter).padStart(3, "0")
-  const type = interaction.values[0]
-  const categoryId = ticketCategories[type]
-
-  if (!categoryId) {
-    return interaction.editReply("❌ Kategorie nicht gefunden!")
-  }
-
-  const guild = interaction.guild
-  const overwrites = [
-    {
-      id: guild.roles.everyone.id,
-      deny: [PermissionsBitField.Flags.ViewChannel]
-    },
-    {
-      id: interaction.user.id,
-      allow: [
-        PermissionsBitField.Flags.ViewChannel,
-        PermissionsBitField.Flags.SendMessages,
-        PermissionsBitField.Flags.AttachFiles,
-        PermissionsBitField.Flags.ReadMessageHistory
-      ]
-    },
-    {
-      id: guild.ownerId,
-      allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
-    }
-  ]
-
-  allowedRoles.forEach(roleId => {
-    overwrites.push({
-      id: roleId,
-      allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
-    })
-  })
-
   try {
+    if (!interaction.isStringSelectMenu()) return
+    if (interaction.customId !== "ticket_menu") return
+    await interaction.deferReply({ ephemeral: true })
+    ticketCounter++
+    const ticketNumber = String(ticketCounter).padStart(3, "0")
+    const type = interaction.values[0]
+    const categoryId = ticketCategories[type]
+    if (!categoryId) {
+      await interaction.editReply("❌ Kategorie nicht gefunden!")
+      return
+    }
+    const guild = interaction.guild
     const category = guild.channels.cache.get(categoryId)
     if (!category) {
-      return interaction.editReply("❌ Kategorie mit der angegebenen ID existiert nicht.")
+      await interaction.editReply("❌ Kategorie existiert nicht auf diesem Server.")
+      return
     }
-
+    const overwrites = []
+    overwrites.push({
+      id: guild.id,
+      deny: [PermissionFlagsBits.ViewChannel]
+    })
+    overwrites.push({
+      id: interaction.user.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.AttachFiles,
+        PermissionFlagsBits.ReadMessageHistory
+      ]
+    })
+    overwrites.push({
+      id: guild.ownerId,
+      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+    })
+    allowedRoles.forEach(roleId => {
+      const role = guild.roles.cache.get(roleId)
+      if (role) {
+        overwrites.push({
+          id: roleId,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+        })
+      }
+    })
+    guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator)).forEach(r => {
+      overwrites.push({
+        id: r.id,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+      })
+    })
+    const channelName = `ticket-${ticketNumber}`
     const channel = await guild.channels.create({
-      name: `${type}-ticket-${ticketNumber}`,
+      name: channelName,
       type: ChannelType.GuildText,
-      parent: category.id,
+      parent: categoryId,
       permissionOverwrites: overwrites
     })
-
-    await channel.send(
-      `🎫 Ticket erstellt von ${interaction.user}.\nEin Teammitglied wird sich bald um dich kümmern.`
-    )
+    await channel.send(`🎫 Ticket erstellt von ${interaction.user.tag} (${type})\nEin Teammitglied wird sich bald melden.`)
     await interaction.editReply(`✅ Dein Ticket wurde erstellt: ${channel}`)
   } catch (err) {
     console.error("Ticket Create Error:", err)
-    await interaction.editReply("❌ Fehler beim Erstellen des Tickets. Bitte kontaktiere einen Admin.")
+    try {
+      const errorString = String(err).slice(0, 1900)
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply(`❌ Fehler beim Erstellen des Tickets:\n\`\`\`\n${errorString}\n\`\`\``)
+      } else {
+        await interaction.reply({ content: `❌ Fehler beim Erstellen des Tickets:\n\`\`\`\n${errorString}\n\`\`\``, ephemeral: true })
+      }
+    } catch {}
+    try {
+      const guild = interaction.guild
+      const teamChannel = guild?.channels.cache.get(TEAM_CHANNEL)
+      const errorString = String(err).slice(0, 1900)
+      if (teamChannel) await teamChannel.send(`Ticket Create Error in ${guild?.name} (${guild?.id}):\n\`\`\`\n${errorString}\n\`\`\``)
+    } catch {}
   }
 })
-
 client.login(DISCORD_TOKEN)
