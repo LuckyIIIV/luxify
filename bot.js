@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, ActivityType, AuditLogEvent } = require('discord.js')
+const { Client, GatewayIntentBits, ActivityType, AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, InteractionType, PermissionFlagsBits, ChannelType } = require('discord.js')
 if (process.env.NODE_ENV !== "production") {
   require('dotenv').config()
 }
@@ -180,8 +180,6 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
     } catch {}
   }
 })
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, InteractionType, PermissionFlagsBits, ChannelType } = require("discord.js")
-
 client.on("interactionCreate", async interaction => {
   if (!interaction.isStringSelectMenu() || interaction.customId !== "ticket_menu") return
 
