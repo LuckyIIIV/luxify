@@ -182,133 +182,102 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
 })
 
 client.on("interactionCreate", async interaction => {
-  const channel = interaction.channel
-
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket_menu") {
     await interaction.deferReply({ ephemeral: true })
+    const ticketType = interaction.values[0]
+    const categoryId = ticketCategories[ticketType]
+    if (!categoryId) return interaction.editReply("❌ Category not found!")
+
     ticketCounter++
     const ticketNumber = String(ticketCounter).padStart(3, "0")
-    const type = interaction.values[0]
-    const categoryId = ticketCategories[type]
-    if (!categoryId) {
-      await interaction.editReply("❌ Category not found!")
-      return
+    const guild = interaction.guild
+    const overwrites = [
+      { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] }
+    ]
+
+    const owner = await guild.members.fetch(guild.ownerId).catch(() => null)
+    if (owner) overwrites.push({ id: owner.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] })
+    for (const roleId of allowedRoles) {
+      const role = await guild.roles.fetch(roleId).catch(() => null)
+      if (role) overwrites.push({ id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] })
+    }
+    guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator)).forEach(r => {
+      overwrites.push({ id: r.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] })
+    })
+
+    const ticketChannel = await guild.channels.create({
+      name: `ticket-${ticketNumber}`,
+      type: ChannelType.GuildText,
+      parent: categoryId,
+      permissionOverwrites: overwrites
+    })
+
+    const embed = new EmbedBuilder()
+      .setTitle(`🎫 Ticket #${ticketNumber}`)
+      .setDescription(`${interaction.user} created this ${ticketType} ticket.\nA team member will be with you shortly.`)
+      .setColor("Blurple")
+      .setTimestamp()
+
+    const buttons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("claim_ticket").setLabel("Claim").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("close_ticket").setLabel("Close").setStyle(ButtonStyle.Danger)
+    )
+
+    await ticketChannel.send({ content: `${interaction.user}`, embeds: [embed], components: [buttons] })
+
+    await interaction.editReply({ content: `✅ Your ticket has been created: ${ticketChannel}` })
+
+    if (interaction.message) {
+      const selectMenu = interaction.message.components[0].components[0]
+      selectMenu.setDisabled(false)
+      await interaction.message.edit({ components: [new ActionRowBuilder().addComponents(selectMenu)] }).catch(() => {})
     }
 
-    try {
-      const guild = interaction.guild
-      const overwrites = [
-        { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] }
-      ]
-      const ownerMember = await guild.members.fetch(guild.ownerId).catch(() => null)
-      if (ownerMember) overwrites.push({ id: ownerMember.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] })
-      for (const roleId of allowedRoles) {
-        const role = await guild.roles.fetch(roleId).catch(() => null)
-        if (role) overwrites.push({ id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] })
-      }
-      const adminRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator))
-      adminRoles.forEach(r => overwrites.push({ id: r.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }))
-
-      const ticketChannel = await guild.channels.create({
-        name: `ticket-${ticketNumber}`,
-        type: ChannelType.GuildText,
-        parent: categoryId,
-        permissionOverwrites: overwrites
-      })
-
-      const embed = new EmbedBuilder()
-        .setTitle(`🎫 Ticket #${ticketNumber}`)
-        .setDescription(`${interaction.user} created this ${type} ticket.\nA team member will be with you shortly.`)
-        .setColor("Blurple")
-        .setTimestamp()
-
-      const buttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("close_ticket").setLabel("Close").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("claim_ticket").setLabel("Claim").setStyle(ButtonStyle.Success)
-      )
-
-      const sentMessage = await ticketChannel.send({ content: `${interaction.user}`, embeds: [embed], components: [buttons] })
-      await interaction.editReply({ content: `✅ Your ticket has been created: ${ticketChannel}` })
-
-      if (interaction.message) {
-        const originalComponents = interaction.message.components.map(row => {
-          const newRow = new ActionRowBuilder()
-          row.components.forEach(comp => {
-            if (comp.customId === "ticket_menu") {
-              newRow.addComponents(comp.setDisabled(false))
-            } else {
-              newRow.addComponents(comp)
-            }
-          })
-          return newRow
-        })
-        await interaction.message.edit({ components: originalComponents }).catch(() => {})
-      }
-
-      ticketChannel.ticketMessages = []
-      const msgCollector = ticketChannel.createMessageCollector({})
-      msgCollector.on("collect", m => ticketChannel.ticketMessages.push(`${m.author.tag}: ${m.content}`))
-
-      ticketChannel.claimer = null
-      ticketChannel.ticketType = type
-      ticketChannel.ticketNumber = ticketNumber
-      ticketChannel.ticketMessage = sentMessage
-    } catch (err) {
-      await interaction.editReply(`❌ Error creating ticket: ${err.message}`)
-    }
-    return
+    ticketChannel.ticketMessages = []
+    const collector = ticketChannel.createMessageCollector({})
+    collector.on("collect", m => ticketChannel.ticketMessages.push(`${m.author.tag}: ${m.content}`))
+    ticketChannel.claimer = null
+    ticketChannel.ticketType = ticketType
+    ticketChannel.ticketNumber = ticketNumber
   }
 
   if (interaction.isButton()) {
-    if (!channel || !channel.ticketMessages) return
-    if (!channel.permissionsFor(interaction.user)?.has(PermissionFlagsBits.ViewChannel)) return await interaction.reply({ content: "You cannot interact with this ticket.", ephemeral: true })
+    const channel = interaction.channel
+    if (!channel || !channel.ticketMessages) return interaction.reply({ content: "This ticket is invalid.", ephemeral: true })
+    if (!channel.permissionsFor(interaction.user)?.has(PermissionFlagsBits.ViewChannel)) return interaction.reply({ content: "You cannot interact with this ticket.", ephemeral: true })
 
     if (interaction.customId === "claim_ticket") {
-      if (channel.claimer) {
-        await interaction.reply({ content: `Ticket already claimed by ${channel.claimer.tag}`, ephemeral: true })
-      } else {
-        channel.claimer = interaction.user
-        await interaction.update({ components: interaction.message.components })
-        await channel.send(`✅ Ticket claimed by ${interaction.user} !`)
-      }
+      if (channel.claimer) return interaction.reply({ content: `Ticket already claimed by ${channel.claimer.tag}`, ephemeral: true })
+      channel.claimer = interaction.user
+      await interaction.update({ components: interaction.message.components })
+      channel.send(`✅ Ticket claimed by ${interaction.user} !`)
       return
     }
 
     if (interaction.customId === "close_ticket") {
-      const confirmButtons = new ActionRowBuilder().addComponents(
+      const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("confirm_close").setLabel("Close").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId("cancel_close").setLabel("Cancel").setStyle(ButtonStyle.Secondary)
       )
-      await interaction.reply({ content: "Close Ticket?", components: [confirmButtons], ephemeral: true })
-      return
+      return interaction.reply({ content: "Close Ticket?", components: [row], ephemeral: true })
     }
 
     if (interaction.customId === "confirm_close") {
-      const modal = new ModalBuilder()
-        .setCustomId("close_modal")
-        .setTitle("Close Ticket")
-
-      const reasonInput = new TextInputBuilder()
-        .setCustomId("close_reason")
-        .setLabel("Reason for closing the ticket")
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true)
-
-      const row = new ActionRowBuilder().addComponents(reasonInput)
-      modal.addComponents(row)
-      await interaction.showModal(modal)
-      return
+      const modal = new ModalBuilder().setCustomId("close_modal").setTitle("Close Ticket")
+      const input = new TextInputBuilder().setCustomId("close_reason").setLabel("Reason").setStyle(TextInputStyle.Paragraph).setRequired(true)
+      modal.addComponents(new ActionRowBuilder().addComponents(input))
+      return interaction.showModal(modal)
     }
 
     if (interaction.customId === "cancel_close") {
-      await interaction.update({ content: "Ticket close cancelled.", components: [] })
-      return
+      return interaction.update({ content: "Ticket close cancelled.", components: [] })
     }
   }
 
   if (interaction.isModalSubmit() && interaction.customId === "close_modal") {
-    if (!channel || !channel.ticketMessages) return
+    const channel = interaction.channel
+    if (!channel || !channel.ticketMessages) return interaction.reply({ content: "This ticket is invalid.", ephemeral: true })
     await interaction.reply({ content: "Closing ticket...", ephemeral: true })
 
     setImmediate(async () => {
@@ -322,6 +291,7 @@ client.on("interactionCreate", async interaction => {
         .setDescription(`Your ${channel.ticketType} ticket has been closed for reason:\n${reason}\nView the log attached.`)
         .setColor("Red")
         .setTimestamp()
+
       await interaction.user.send({ embeds: [closeEmbed], files: [`/tmp/${fileName}`] }).catch(() => {})
 
       const logChannel = await channel.guild.channels.fetch(TICKET_LOG_CHANNEL)
@@ -338,5 +308,6 @@ client.on("interactionCreate", async interaction => {
     })
   }
 })
+
 
 client.login(DISCORD_TOKEN)
