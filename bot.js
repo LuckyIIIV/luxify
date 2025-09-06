@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, ActivityType, AuditLogEvent, ChannelType, PermissionFlagsBits } = require('discord.js')
+const { Client, ActionRowBuilder, GatewayIntentBits, ButtonBuilder, ButtonStyle, EmbedBuilder, ActivityType, AuditLogEvent, ChannelType, PermissionFlagsBits } = require('discord.js')
 if (process.env.NODE_ENV !== "production") {
   require('dotenv').config()
 }
@@ -180,74 +180,110 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
   }
 })
 client.on("interactionCreate", async interaction => {
-  if (!interaction.isStringSelectMenu()) return
-  if (interaction.customId !== "ticket_menu") return
-  await interaction.deferReply({ ephemeral: true })
-  ticketCounter++
-  const ticketNumber = String(ticketCounter).padStart(3, "0")
-  const type = interaction.values[0]
-  const categoryId = ticketCategories[type]
-  if (!categoryId) {
-    await interaction.editReply("❌ Kategorie nicht gefunden!")
-    return
-  }
-  try {
-    const guild = interaction.guild
-    const overwrites = [
-      {
-        id: guild.id,
-        deny: [PermissionFlagsBits.ViewChannel]
-      },
-      {
-        id: interaction.user.id,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.ReadMessageHistory
-        ]
-      }
-    ]
-    const ownerMember = await guild.members.fetch(guild.ownerId).catch(() => null)
-    if (ownerMember) {
-      overwrites.push({
-        id: ownerMember.id,
-        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
-      })
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket_menu") {
+    await interaction.deferReply({ ephemeral: true })
+    ticketCounter++
+    const ticketNumber = String(ticketCounter).padStart(3, "0")
+    const type = interaction.values[0]
+    const categoryId = ticketCategories[type]
+    if (!categoryId) {
+      await interaction.editReply("❌ Kategorie nicht gefunden!")
+      return
     }
-    for (const roleId of allowedRoles) {
-      const role = await guild.roles.fetch(roleId).catch(() => null)
-      if (role) {
+    try {
+      const guild = interaction.guild
+      const overwrites = [
+        {
+          id: guild.id,
+          deny: [PermissionFlagsBits.ViewChannel]
+        },
+        {
+          id: interaction.user.id,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.AttachFiles,
+            PermissionFlagsBits.ReadMessageHistory
+          ]
+        }
+      ]
+      const ownerMember = await guild.members.fetch(guild.ownerId).catch(() => null)
+      if (ownerMember) {
         overwrites.push({
-          id: role.id,
+          id: ownerMember.id,
           allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
         })
       }
-    }
-    const adminRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator))
-    adminRoles.forEach(r => {
-      overwrites.push({
-        id: r.id,
-        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+      for (const roleId of allowedRoles) {
+        const role = await guild.roles.fetch(roleId).catch(() => null)
+        if (role) {
+          overwrites.push({
+            id: role.id,
+            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+          })
+        }
+      }
+      const adminRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator))
+      adminRoles.forEach(r => {
+        overwrites.push({
+          id: r.id,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+        })
       })
-    })
-    const channel = await guild.channels.create({
-      name: `ticket-${ticketNumber}`,
-      type: ChannelType.GuildText,
-      parent: categoryId,
-      permissionOverwrites: overwrites
-    })
-    await channel.send(`🎫 Ticket erstellt von ${interaction.user.tag} (${type})\nEin Teammitglied wird sich bald melden.`)
-    await interaction.editReply(`✅ Dein Ticket wurde erstellt: ${channel}`)
-  } catch (err) {
-    const errorString = String(err).slice(0, 1900)
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply(`❌ Fehler beim Erstellen des Tickets:\n\`\`\`\n${errorString}\n\`\`\``)
-    } else {
-      await interaction.reply({ content: `❌ Fehler beim Erstellen des Tickets:\n\`\`\`\n${errorString}\n\`\`\``, ephemeral: true })
+      const channel = await guild.channels.create({
+        name: `ticket-${ticketNumber}`,
+        type: ChannelType.GuildText,
+        parent: categoryId,
+        permissionOverwrites: overwrites
+      })
+
+      const embed = new EmbedBuilder()
+        .setTitle(`🎫 Ticket #${ticketNumber}`)
+        .setDescription(`Ticket erstellt von ${interaction.user.tag} (${type})\nEin Teammitglied wird sich bald melden.`)
+        .setColor("Blurple")
+        .setTimestamp()
+
+      const closeButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("close_ticket")
+          .setLabel("Close Ticket")
+          .setStyle(ButtonStyle.Danger)
+      )
+
+      await channel.send({ embeds: [embed], components: [closeButton] })
+      await interaction.editReply(`✅ Dein Ticket wurde erstellt: ${channel}`)
+    } catch (err) {
+      const errorString = String(err).slice(0, 1900)
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply(`❌ Fehler beim Erstellen des Tickets:\n\`\`\`\n${errorString}\n\`\`\``)
+      } else {
+        await interaction.reply({ content: `❌ Fehler beim Erstellen des Tickets:\n\`\`\`\n${errorString}\n\`\`\``, ephemeral: true })
+      }
+      const teamChannel = interaction.guild?.channels.cache.get(TEAM_CHANNEL)
+      if (teamChannel) await teamChannel.send(`Ticket Create Error:\n\`\`\`\n${errorString}\n\`\`\``)
     }
-    const teamChannel = interaction.guild?.channels.cache.get(TEAM_CHANNEL)
-    if (teamChannel) await teamChannel.send(`Ticket Create Error:\n\`\`\`\n${errorString}\n\`\`\``)
+  }
+
+  if (interaction.isButton()) {
+    if (interaction.customId === "close_ticket") {
+      const confirmRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("confirm_close")
+          .setLabel("Close")
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId("cancel_close")
+          .setLabel("Cancel")
+          .setStyle(ButtonStyle.Secondary)
+      )
+      await interaction.reply({ content: "Close Ticket?", components: [confirmRow], ephemeral: true })
+    }
+    if (interaction.customId === "confirm_close") {
+      await interaction.channel.delete().catch(() => {})
+    }
+    if (interaction.customId === "cancel_close") {
+      await interaction.update({ content: "Ticket close cancelled.", components: [] })
+    }
   }
 })
 client.login(DISCORD_TOKEN)
