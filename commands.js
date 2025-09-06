@@ -1,4 +1,4 @@
-const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } = require("discord.js")
+const { StringSelectMenuBuilder } = require("discord.js")
 module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pause, securityActive, supabase) => {
   const command = args.shift()?.toLowerCase()
   if (command === 'ping') {
