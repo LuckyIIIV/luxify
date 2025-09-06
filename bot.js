@@ -182,6 +182,8 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
 })
 
 client.on("interactionCreate", async interaction => {
+  const channel = interaction.channel
+
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket_menu") {
     await interaction.deferReply({ ephemeral: true })
     ticketCounter++
@@ -208,7 +210,7 @@ client.on("interactionCreate", async interaction => {
       const adminRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator))
       adminRoles.forEach(r => overwrites.push({ id: r.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }))
 
-      const channel = await guild.channels.create({
+      const ticketChannel = await guild.channels.create({
         name: `ticket-${ticketNumber}`,
         type: ChannelType.GuildText,
         parent: categoryId,
@@ -222,21 +224,21 @@ client.on("interactionCreate", async interaction => {
         .setTimestamp()
 
       const buttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("close_ticket").setLabel("Close").setEmoji("🔒").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("close_ticket").setLabel("Close").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId("claim_ticket").setLabel("Claim").setStyle(ButtonStyle.Success)
       )
 
-      const sentMessage = await channel.send({ content: `${interaction.user}`, embeds: [embed], components: [buttons] })
-      await interaction.editReply(`✅ Your ticket has been created: ${channel}`)
+      const sentMessage = await ticketChannel.send({ content: `${interaction.user}`, embeds: [embed], components: [buttons] })
+      await interaction.editReply(`✅ Your ticket has been created: ${ticketChannel}`)
 
-      channel.ticketMessages = []
-      const msgCollector = channel.createMessageCollector({})
-      msgCollector.on("collect", m => channel.ticketMessages.push(`${m.author.tag}: ${m.content}`))
+      ticketChannel.ticketMessages = []
+      const msgCollector = ticketChannel.createMessageCollector({})
+      msgCollector.on("collect", m => ticketChannel.ticketMessages.push(`${m.author.tag}: ${m.content}`))
 
-      channel.claimer = null
-      channel.ticketType = type
-      channel.ticketNumber = ticketNumber
-      channel.ticketMessage = sentMessage
+      ticketChannel.claimer = null
+      ticketChannel.ticketType = type
+      ticketChannel.ticketNumber = ticketNumber
+      ticketChannel.ticketMessage = sentMessage
     } catch (err) {
       await interaction.editReply(`❌ Error creating ticket: ${err.message}`)
     }
@@ -244,7 +246,6 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (interaction.isButton()) {
-    const channel = interaction.channel
     if (!channel || !channel.ticketMessages) return
 
     if (!channel.permissionsFor(interaction.user)?.has(PermissionFlagsBits.ViewChannel)) {
@@ -257,13 +258,23 @@ client.on("interactionCreate", async interaction => {
       } else {
         channel.claimer = interaction.user
         await interaction.update({
-          content: `✅ Ticket claimed by ${interaction.user.tag}`,
           components: interaction.message.components
         })
+        await channel.send(`✅ Ticket claimed by ${interaction.user} !`)
       }
+      return
     }
 
     if (interaction.customId === "close_ticket") {
+      const confirmButtons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("confirm_close").setLabel("Close").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("cancel_close").setLabel("Cancel").setStyle(ButtonStyle.Secondary)
+      )
+      await interaction.reply({ content: "Close Ticket?", components: [confirmButtons], ephemeral: true })
+      return
+    }
+
+    if (interaction.customId === "confirm_close") {
       const modal = new ModalBuilder()
         .setCustomId("close_modal")
         .setTitle("Close Ticket")
@@ -278,15 +289,19 @@ client.on("interactionCreate", async interaction => {
       modal.addComponents(row)
 
       await interaction.showModal(modal)
+      return
     }
-    return
+
+    if (interaction.customId === "cancel_close") {
+      await interaction.update({ content: "Ticket close cancelled.", components: [] })
+      return
+    }
   }
 
   if (interaction.isModalSubmit() && interaction.customId === "close_modal") {
-    const channel = interaction.channel
     if (!channel || !channel.ticketMessages) return
 
-    await interaction.reply({ content: "Ticket close process started...", ephemeral: true })
+    await interaction.reply({ content: "Closing ticket...", ephemeral: true })
 
     setImmediate(async () => {
       const reason = interaction.fields.getTextInputValue("close_reason")
@@ -314,7 +329,6 @@ client.on("interactionCreate", async interaction => {
 
       setTimeout(() => channel.delete().catch(() => {}), 1000)
     })
-    return
   }
 })
 
