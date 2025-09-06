@@ -191,18 +191,22 @@ client.on("interactionCreate", async interaction => {
       await interaction.editReply("❌ Category not found!")
       return
     }
+
     try {
       const guild = interaction.guild
       const overwrites = [
         { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
         { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] }
       ]
+
       const ownerMember = await guild.members.fetch(guild.ownerId).catch(() => null)
       if (ownerMember) overwrites.push({ id: ownerMember.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] })
+
       for (const roleId of allowedRoles) {
         const role = await guild.roles.fetch(roleId).catch(() => null)
         if (role) overwrites.push({ id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] })
       }
+
       const adminRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator))
       adminRoles.forEach(r => overwrites.push({ id: r.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }))
 
@@ -245,23 +249,26 @@ client.on("interactionCreate", async interaction => {
             await btnInt.reply({ content: `Ticket already claimed by ${claimer.tag}`, ephemeral: true })
           } else {
             claimer = btnInt.user
-            await btnInt.reply({ content: `✅ Ticket claimed by ${claimer.tag}`, ephemeral: false })
+            await btnInt.update({ content: `✅ Ticket claimed by ${claimer.tag}`, components: btnInt.message.components })
           }
         }
 
         if (btnInt.customId === "close_ticket") {
-          const modal = new ModalBuilder().setCustomId("close_modal").setTitle("Close Ticket")
+          const modal = new ModalBuilder()
+            .setCustomId("close_modal")
+            .setTitle("Close Ticket")
           const reasonInput = new TextInputBuilder()
             .setCustomId("close_reason")
             .setLabel("Reason for closing the ticket")
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true)
-          modal.addComponents(new ActionRowBuilder().addComponents(reasonInput))
+          const row = new ActionRowBuilder().addComponents(reasonInput)
+          modal.addComponents(row)
           await btnInt.showModal(modal)
         }
       })
 
-      const modalCollector = client.on("interactionCreate", async modalInt => {
+      client.on("interactionCreate", async modalInt => {
         if (modalInt.type !== InteractionType.ModalSubmit) return
         if (modalInt.customId === "close_modal") {
           const reason = modalInt.fields.getTextInputValue("close_reason")
@@ -274,6 +281,7 @@ client.on("interactionCreate", async interaction => {
             .setDescription(`Your ${type} ticket has been closed for reason:\n${reason}\nView the log attached.`)
             .setColor("Red")
             .setTimestamp()
+
           await modalInt.user.send({ embeds: [closeEmbed], files: [`/tmp/${fileName}`] }).catch(() => {})
 
           const logChannel = await guild.channels.fetch(TICKET_LOG_CHANNEL)
