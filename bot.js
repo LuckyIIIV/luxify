@@ -195,13 +195,18 @@ client.on('guildAuditLogEntryCreate', async (entry, guild) => {
 client.on("interactionCreate", async interaction => {
   if (!interaction.isStringSelectMenu()) return
   if (interaction.customId !== "ticket_menu") return
+
+  await interaction.deferReply({ ephemeral: true })
+
   ticketCounter++
   const ticketNumber = String(ticketCounter).padStart(3, "0")
   const type = interaction.values[0]
   const categoryId = ticketCategories[type]
+
   if (!categoryId) {
-    return interaction.reply({ content: "❌ Kategorie nicht gefunden!", ephemeral: true })
+    return interaction.editReply("❌ Kategorie nicht gefunden!")
   }
+
   const guild = interaction.guild
   const overwrites = [
     {
@@ -217,20 +222,28 @@ client.on("interactionCreate", async interaction => {
       allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
     }
   ]
+
   allowedRoles.forEach(roleId => {
     overwrites.push({
       id: roleId,
       allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
     })
   })
-  const channel = await guild.channels.create({
-    name: `${type}-${ticketNumber}`,
-    type: ChannelType.GuildText,
-    parent: categoryId,
-    permissionOverwrites: overwrites
-  })
-  await channel.send(`🎫 Ticket erstellt von ${interaction.user}. Ein Teammitglied wird sich bald melden.`)
-  await interaction.reply({ content: `✅ Dein Ticket wurde erstellt: ${channel}`, ephemeral: true })
+
+  try {
+    const channel = await guild.channels.create({
+      name: `${type}-${ticketNumber}`,
+      type: ChannelType.GuildText,
+      parent: categoryId,
+      permissionOverwrites: overwrites
+    })
+
+    await channel.send(`🎫 Ticket erstellt von ${interaction.user}. Ein Teammitglied wird sich bald melden.`)
+    await interaction.editReply(`✅ Dein Ticket wurde erstellt: ${channel}`)
+  } catch (err) {
+    console.error(err)
+    await interaction.editReply("❌ Fehler beim Erstellen des Tickets. Bitte kontaktiere einen Admin.")
+  }
 })
 
 client.login(DISCORD_TOKEN)
