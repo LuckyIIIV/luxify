@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, ButtonBuilder, ButtonStyle, EmbedBuilder, ActivityType, ModalBuilder, TextInputBuilder, TextInputStyle, AuditLogEvent, ChannelType, PermissionFlagsBits } = require('discord.js')
+const { Client, GatewayIntentBits, ButtonStyle, EmbedBuilder, ActivityType, ModalBuilder, TextInputBuilder, TextInputStyle, AuditLogEvent, ChannelType, PermissionFlagsBits } = require('discord.js')
 if (process.env.NODE_ENV !== "production") {
   require('dotenv').config()
 }
