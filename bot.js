@@ -190,11 +190,25 @@ client.on("interactionCreate", async interaction => {
     const ticketNumber = String(ticketCounter).padStart(3, "0")
     const type = interaction.values[0]
     
-    const categoryId = ticketCategories[type];
-    if (!categoryId) {
-      await interaction.editReply("❌ Category not found!");
+    const normalizedType = type.toLowerCase().trim();
+
+    if (!type) {
+      await interaction.editReply("❌ Kein Typ angegeben!");
       return;
     }
+
+    if (!ticketCategories[normalizedType]) {
+      const available = Object.keys(ticketCategories).join(", ");
+      await interaction.editReply(
+        `❌ Category "${type}" not found!\n` +
+        `⚠️ Du kannst nur eine der folgenden Kategorien wählen: ${available}\n` +
+        `🔍 Normalized type: "${normalizedType}"`
+      );
+      return;
+    }
+
+    const categoryId = ticketCategories[normalizedType];
+    await interaction.editReply(`✅ Kategorie gefunden: ${categoryId}`);
 
     try {
       const guild = interaction.guild
