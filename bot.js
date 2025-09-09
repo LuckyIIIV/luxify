@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, ActivityType, AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, InteractionType, PermissionFlagsBits, ChannelType } = require('discord.js')
+const { Client, GatewayIntentBits, ActivityType, AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits, ChannelType } = require('discord.js')
 if (process.env.NODE_ENV !== "production") {
   require('dotenv').config()
 }
@@ -80,6 +80,7 @@ const allowedRoles = [
   "1393207668637958297"
 ]
 const TICKET_LOG_CHANNEL = "1413910870886584333"
+
 client.once('ready', () => {
   console.log(`Bot online as ${client.user.tag}`)
   client.user.setPresence({
@@ -91,6 +92,7 @@ client.once('ready', () => {
     status: 'dnd'
   })
 })
+
 client.on('messageCreate', async message => {
   if (message.author.bot || !message.guild) return
   if (!message.content.startsWith('+')) return
@@ -146,6 +148,7 @@ client.on('messageCreate', async message => {
     }
   }
 })
+
 client.on('guildMemberAdd', async member => {
   if (!securityActive) return
   const now = Date.now()
@@ -165,6 +168,7 @@ client.on('guildMemberAdd', async member => {
     member.guild.channels.cache.get(TEAM_CHANNEL)?.send(`⚠️ Possible raid detected on ${member.guild.name}`)
   }
 })
+
 client.on('guildAuditLogEntryCreate', async (entry, guild) => {
   if (!securityActive) return
   if (!guild || !entry.executor) return
@@ -215,8 +219,6 @@ client.on("interactionCreate", async interaction => {
         const role = await guild.roles.fetch(roleId).catch(() => null)
         if (role) overwrites.push({ id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] })
       }
-      const adminRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.Administrator))
-      adminRoles.forEach(r => overwrites.push({ id: r.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }))
 
       const ticketChannel = await guild.channels.create({
         name: `ticket-${ticketNumber}`,
@@ -240,6 +242,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.editReply(`✅ Your ticket has been created: ${ticketChannel}`)
 
       ticketChannel.ticketMessages = []
+      ticketChannel.ticketOwner = interaction.user
       const msgCollector = ticketChannel.createMessageCollector({})
       msgCollector.on("collect", m => ticketChannel.ticketMessages.push(`${m.author.tag}: ${m.content}`))
 
@@ -256,24 +259,27 @@ client.on("interactionCreate", async interaction => {
   if (interaction.isButton()) {
     if (!channel || !channel.ticketMessages) return
 
-    if (!channel.permissionsFor(interaction.user)?.has(PermissionFlagsBits.ViewChannel)) {
+    const memberRoles = interaction.member.roles.cache.map(r => r.id)
+    const isStaff = memberRoles.some(r => allowedRoles.includes(r))
+
+    if (!interaction.user.id === channel.ticketOwner.id && !isStaff) {
       return await interaction.reply({ content: "You cannot interact with this ticket.", ephemeral: true })
     }
 
     if (interaction.customId === "claim_ticket") {
+      if (!isStaff) return await interaction.reply({ content: "Only staff can claim tickets.", ephemeral: true })
       if (channel.claimer) {
         await interaction.reply({ content: `Ticket already claimed by ${channel.claimer.tag}`, ephemeral: true })
       } else {
         channel.claimer = interaction.user
-        await interaction.update({
-          components: interaction.message.components
-        })
+        await interaction.update({ components: interaction.message.components })
         await channel.send(`✅ Ticket claimed by ${interaction.user} !`)
       }
       return
     }
 
     if (interaction.customId === "close_ticket") {
+      if (!isStaff) return await interaction.reply({ content: "Only staff can close tickets.", ephemeral: true })
       const confirmButtons = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("confirm_close").setLabel("Close").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId("cancel_close").setLabel("Cancel").setStyle(ButtonStyle.Secondary)
@@ -283,6 +289,8 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (interaction.customId === "confirm_close") {
+      if (!isStaff) return await interaction.reply({ content: "Only staff can confirm close.", ephemeral: true })
+
       const modal = new ModalBuilder()
         .setCustomId("close_modal")
         .setTitle("Close Ticket")
@@ -308,6 +316,9 @@ client.on("interactionCreate", async interaction => {
 
   if (interaction.isModalSubmit() && interaction.customId === "close_modal") {
     if (!channel || !channel.ticketMessages) return
+    const memberRoles = interaction.member.roles.cache.map(r => r.id)
+    const isStaff = memberRoles.some(r => allowedRoles.includes(r))
+    if (!isStaff) return await interaction.reply({ content: "Only staff can close tickets.", ephemeral: true })
 
     await interaction.reply({ content: "Closing ticket...", ephemeral: true })
 
@@ -323,7 +334,7 @@ client.on("interactionCreate", async interaction => {
         .setColor("Red")
         .setTimestamp()
 
-      await interaction.user.send({ embeds: [closeEmbed], files: [`/tmp/${fileName}`] }).catch(() => {})
+      await channel.ticketOwner.send({ embeds: [closeEmbed], files: [`/tmp/${fileName}`] }).catch(() => {})
 
       const logChannel = await channel.guild.channels.fetch(TICKET_LOG_CHANNEL)
       if (logChannel) {
