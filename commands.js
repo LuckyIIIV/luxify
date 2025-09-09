@@ -1,4 +1,6 @@
-module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pause, securityActive, supabase) => {
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+
+module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pause, securityActive, supabase, allowedRoles) => {
   const command = args.shift()?.toLowerCase()
 
   if (command === 'ping') {
@@ -22,15 +24,15 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
       }
 
       const member = await message.guild.members.fetch(userId).catch(() => null)
-      if (!member) return message.channel.send('User nicht gefunden.')
+      if (!member) return message.channel.send('User not found.')
 
       const role = message.guild.roles.cache.get(roleId)
-      if (!role) return message.channel.send('Rolle nicht gefunden.')
+      if (!role) return message.channel.send('Role not found.')
 
       await member.roles.add(role)
-      message.channel.send(`Rolle <@&${roleId}> wurde erfolgreich zu <@${userId}> hinzugefügt.`)
+      message.channel.send(`Role <@&${roleId}> was successfully added to <@${userId}>.`)
     } catch (err) {
-      message.channel.send(`Konnte Rolle nicht hinzufügen: ${err.message}`)
+      message.channel.send(`Could not add role: ${err.message}`)
     }
   }
 
@@ -41,8 +43,6 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
 
   if (command === 'help') {
     try {
-      const { EmbedBuilder } = require('discord.js')
-
       const embed = new EmbedBuilder()
         .setTitle('Security Bot Help')
         .setDescription('Here is a list of available commands:')
@@ -62,6 +62,7 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
           { name: '+ui {userId}', value: 'Show detailed user information.', inline: true },
           { name: '+search {query}', value: 'Search user or IP in database.', inline: true },
           { name: '+dbadd ```key: value```', value: 'Add a new entry to database (whitelisted only).', inline: true },
+          { name: '+sendticketpanel', value: 'Send the ticket panel for users to open tickets.', inline: true },
           { name: '+addrole {userId} {roleId}', value: 'Add a role to a user.', inline: true }
         )
         .setFooter({ text: 'Security Bot • Developed by tkt.lucky' })
@@ -239,22 +240,22 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
 
   if (command === 'search') {
     const query = args.join(' ')
-    if (!query) return message.channel.send('Bitte gib einen User oder eine IP ein.')
+    if (!query) return message.channel.send('Please provide a user or an IP.')
     const isIP = /^\d{1,3}(\.\d{1,3}){3}$/.test(query)
     const type = isIP ? 'ip' : 'user'
     const { data, error } = await supabase.from('search_data').select('*').eq('type', type).ilike('query', query)
-    if (error) return message.channel.send('Datenbank Fehler: ' + error.message)
-    if (!data.length) return message.channel.send(`Keine Infos gefunden für ${query}`)
+    if (error) return message.channel.send('Database error: ' + error.message)
+    if (!data.length) return message.channel.send(`No info found for ${query}`)
     data.forEach(entry => {
-      message.channel.send(`Infos found for ${query}:\n\`\`\`json\n${JSON.stringify(entry.data, null, 2)}\n\`\`\``)
+      message.channel.send(`Info found for ${query}:\n\`\`\`json\n${JSON.stringify(entry.data, null, 2)}\n\`\`\``)
     })
   }
 
   if (command === 'dbadd') {
-    if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.channel.send('Nur du darfst Einträge hinzufügen.')
+    if (!whitelist.whitelistedUsers.includes(message.author.id)) return message.channel.send('Only whitelisted users can add entries.')
     const content = args.join(' ')
     const match = content.match(/```([\s\S]+)```/)
-    if (!match) return message.channel.send('Bitte benutze einen Codeblock ```...```')
+    if (!match) return message.channel.send('Please use a code block ```...```')
     const block = match[1].trim()
     const lines = block.split('\n')
     const jsonData = {}
@@ -266,7 +267,32 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
     const type = /^\d{1,3}(\.\d{1,3}){3}$/.test(jsonData.ip) ? 'ip' : 'user'
     const query = jsonData.user || jsonData.ip || 'unknown'
     const { error } = await supabase.from('search_data').insert([{ query, type, data: jsonData }])
-    if (error) return message.channel.send('Fehler beim Einfügen: ' + error.message)
-    message.channel.send(`Eintrag erfolgreich hinzugefügt für ${query}`)
+    if (error) return message.channel.send('Error inserting: ' + error.message)
+    message.channel.send(`Entry successfully added for ${query}`)
+  }
+
+  if (command === 'sendticketpanel') {
+    const memberRoles = message.member.roles.cache.map(r => r.id);
+    const isStaff = memberRoles.some(r => allowedRoles.includes(r));
+    if (!isStaff) return message.channel.send('Only staff can send the ticket panel.');
+
+    const embed = new EmbedBuilder()
+      .setTitle('🎫 Support Tickets')
+      .setDescription('Select a category from the menu to create a ticket.')
+      .setColor('Blurple');
+
+    const row = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('ticket_menu')
+        .setPlaceholder('Select a category...')
+        .addOptions([
+          { label: 'Support', value: 'support', description: 'For general support inquiries', emoji: '🛠️' },
+          { label: 'Apply', value: 'apply', description: 'To submit an application', emoji: '📝' },
+          { label: 'Ban Appeal', value: 'ban', description: 'To submit a ban appeal', emoji: '⚖️' }
+        ])
+    );
+
+    await message.channel.send({ embeds: [embed], components: [row] });
+    return message.channel.send('✅ Ticket panel has been sent.');
   }
 }
