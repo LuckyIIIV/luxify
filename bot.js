@@ -31,8 +31,12 @@ let securityActive = true
 const blacklist = [
   'nigga','niga','nicka','nigger','niger',
   'fotze','bastard','hurensohn','schwanz','penis',
-  'muschi','vagina','ficken','fickt', 'bitch', 'sklave'
+  'muschi','vagina','ficken','fickt', 'bitch', 'sklave',
+  'arschloch', 'wixxer', 'wickser', 'nehga'
 ]
+
+const ipRegex = /\b((25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)([.\:\-\_\s])){3}(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\b/
+
 function normalize(str) {
   return str.toLowerCase()
     .replace(/@/g, 'a')
@@ -48,13 +52,16 @@ function normalize(str) {
     .replace(/\+/g, 't')
     .replace(/[^a-z]/g, '')
 }
+
 function isBlacklisted(content) {
   const normalizedContent = normalize(content)
   for (const word of blacklist) {
     if (normalizedContent.includes(normalize(word))) return true
   }
+  if (ipRegex.test(content)) return true
   return false
 }
+
 let ticketCounter = 0
 const ticketCategories = {
   support: "1393207709117186178",
@@ -77,7 +84,7 @@ client.once('ready', () => {
   console.log(`Bot online as ${client.user.tag}`)
   client.user.setPresence({
     activities: [{
-      name: '[+] Security | 👑 LuxifySMP',
+      name: '[+] Security | 👑 LuxifySMP.net',
       type: ActivityType.Streaming,
       url: 'https://twitch.tv/luxifysmp'
     }],
@@ -110,8 +117,8 @@ client.on('messageCreate', async message => {
       punishedUsers.add(message.author.id)
       try {
         await message.delete()
-        await message.member.timeout(30 * 60 * 1000, 'User used blacklisted words')
-        await message.channel.send(`${message.author.tag} was timed out for 30m (blacklisted words)`)
+        await message.member.timeout(30 * 60 * 1000, 'User used blacklisted words or IPs')
+        await message.channel.send(`${message.author.tag} was timed out for 30m (blacklisted words/IPs)`)
       } catch {}
     } else {
       try { await message.delete() } catch {}
