@@ -99,7 +99,7 @@ client.on('messageCreate', async message => {
   const args = message.content.slice(1).split(/ +/)
   if (whitelist.whitelistedUsers.includes(message.author.id)) {
     try {
-      await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL, () => { securityActive = true }, () => { securityActive = false }, securityActive, supabase)
+      await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL, () => { securityActive = true }, () => { securityActive = false }, securityActive, supabase, allowedRoles)
     } catch (err) {
       await message.channel.send(`Error: ${err.message}`)
     }
