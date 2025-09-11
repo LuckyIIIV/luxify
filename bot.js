@@ -35,7 +35,9 @@ const blacklist = [
   'arschloch', 'wixxer', 'wickser', 'nehga'
 ]
 
-const ipRegex = /\b((25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)([.\:\-\_\s])){3}(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\b/
+const ipRegex = /\b(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(?:\.|:)){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\b|(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4})/;
+
+const discordLinkRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/[^\s]+/i;
 
 function normalize(str) {
   return str.toLowerCase()
@@ -55,10 +57,15 @@ function normalize(str) {
 
 function isBlacklisted(content) {
   const normalizedContent = normalize(content)
+  
   for (const word of blacklist) {
-    if (normalizedContent.includes(normalize(word))) return true
+    if (normalizedContent.includes(normalize(word))) return { type: 'word' }
   }
-  if (ipRegex.test(content)) return true
+
+  if (ipRegex.test(content)) return { type: 'ip' }
+
+  if (discordLinkRegex.test(content)) return { type: 'discord' }
+
   return false
 }
 
@@ -95,38 +102,54 @@ client.once('ready', () => {
 
 client.on('messageCreate', async message => {
   if (message.author.bot || !message.guild) return
-  if (!message.content.startsWith('+')) return
-  const args = message.content.slice(1).split(/ +/)
-  if (whitelist.whitelistedUsers.includes(message.author.id)) {
-    try {
-      await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL, () => { securityActive = true }, () => { securityActive = false }, securityActive, supabase, allowedRoles)
-    } catch (err) {
-      await message.channel.send(`Error: ${err.message}`)
-    }
-  } else {
-    await message.channel.send('You are not allowed to use this bot.')
-  }
-  if (!securityActive) return
+
   const now = Date.now()
   const key = `${message.guild.id}-${message.author.id}`
+
   if (!messageLogs.has(key)) messageLogs.set(key, [])
   const logs = messageLogs.get(key)
   logs.push({ content: message.content, time: now })
   const recent = logs.filter(l => now - l.time < 5000)
   messageLogs.set(key, recent)
-  if (isBlacklisted(message.content)) {
+
+  if (message.content.startsWith('+')) {
+    const args = message.content.slice(1).split(/ +/)
+    if (whitelist.whitelistedUsers.includes(message.author.id)) {
+      try {
+        await handleCommand(message, args, whitelist, fs, TEAM_CHANNEL, () => { securityActive = true }, () => { securityActive = false }, securityActive, supabase, allowedRoles)
+      } catch (err) {
+        await message.channel.send(`Error: ${err.message}`)
+      }
+    } else {
+      await message.channel.send('You are not allowed to use this bot.')
+    }
+  }
+
+  if (!securityActive) return
+
+  const result = isBlacklisted(message.content)
+  if (result) {
     if (!whitelist.whitelistedUsers.includes(message.author.id) && !punishedUsers.has(message.author.id)) {
       punishedUsers.add(message.author.id)
       try {
         await message.delete()
-        await message.member.timeout(30 * 60 * 1000, 'User used blacklisted words or IPs')
-        await message.channel.send(`${message.author.tag} was timed out for 30m (blacklisted words/IPs)`)
+        if (result.type === 'ip') {
+          await message.member.timeout(10 * 60 * 1000, 'Sending IPs is not allowed')
+          await message.channel.send(`${message.author.tag} was timed out for 10m (IP sent)`)
+        } else if (result.type === 'discord') {
+          await message.member.timeout(5 * 60 * 1000, 'Sending Discord links is not allowed')
+          await message.channel.send(`${message.author.tag} was timed out for 5m (Discord link sent)`)
+        } else {
+          await message.member.timeout(30 * 60 * 1000, 'User used blacklisted words')
+          await message.channel.send(`${message.author.tag} was timed out for 30m (blacklisted words)`)
+        }
       } catch {}
     } else {
       try { await message.delete() } catch {}
     }
     return
   }
+
   if (recent.length > 8) {
     if (!whitelist.whitelistedUsers.includes(message.author.id) && !punishedUsers.has(message.author.id)) {
       punishedUsers.add(message.author.id)
@@ -136,6 +159,7 @@ client.on('messageCreate', async message => {
       } catch {}
     }
   }
+
   const linkPattern = /(https?:\/\/[^\s]+)/gi
   if (message.content.match(linkPattern)) {
     const suspicious = /(grabify|iplogger|phish|scam|free-nitro)/i
