@@ -99,16 +99,38 @@ module.exports = async (message, args, whitelist, fs, TEAM_CHANNEL, activate, pa
   }
 
   if (command === 'timeout') {
-    try {
-      const user = message.mentions.members.first()
-      const duration = parseInt(args[0]) * 1000
-      if (!user || isNaN(duration)) return message.channel.send('Usage: +timeout @user seconds')
-      await user.timeout(duration, 'Timeout by Security Bot')
-      message.channel.send(`${user.user.tag} timed out for ${args[0]}s`)
-    } catch (err) {
-      message.channel.send(`Couldn't timeout user: ${err.message}`)
-    }
+  try {
+    const user = message.mentions.members.first();
+    if (!user) return message.channel.send('Usage: +timeout @user duration');
+
+    const durationArg = args[1];
+    if (!durationArg) return message.channel.send('Bitte gib eine Zeit an. Beispiel: +timeout @user 600s');
+
+    const match = durationArg.match(/^(\d+)(s|m|h|d|w)?$/i);
+    if (!match) return message.channel.send('Ungültiges Zeitformat. Nutze z.B. 600s, 10m, 2h, 1d, 1w.');
+
+    const value = parseInt(match[1]);
+    const unit = match[2]?.toLowerCase() || 's';
+
+    let duration = 0;
+    if (unit === 's') duration = value * 1000;
+    if (unit === 'm') duration = value * 60 * 1000;
+    if (unit === 'h') duration = value * 60 * 60 * 1000;
+    if (unit === 'd') duration = value * 24 * 60 * 60 * 1000;
+    if (unit === 'w') duration = value * 7 * 24 * 60 * 60 * 1000;
+
+    if (duration <= 0) return message.channel.send('Bitte gib eine gültige Dauer an.');
+
+    const maxDuration = 28 * 24 * 60 * 60 * 1000;
+    if (duration > maxDuration) return message.channel.send('❌ Discord erlaubt maximal 28 Tage Timeout.');
+
+    await user.timeout(duration, `Timeout by Security Bot`);
+    message.channel.send(`${user.user.tag} wurde für ${value}${unit} getimeoutet.`);
+  } catch (err) {
+    message.channel.send(`Couldn't timeout user: ${err.message}`);
   }
+}
+
 
   if (command === 'purge') {
     try {
